@@ -161,7 +161,12 @@
 
             <select id="volPeriodo">
                 <option value="Integral">Integral</option>
-                <option value="Part-time">Part-time</option>
+                <option value="Part-time(Manhã)">Part-time (Manhã)</option>
+                <option value="Part-time(Manhã e Tarde)">Part-time (Manhã e Tarde)</option>
+                <option value="Part-time(Tarde)">Part-time (Tarde)</option>
+                <option value="Part-time(Tarde e Noite)">Part-time (Tarde e Noite)</option>
+                <option value="Part-time(Noite)">Part-time (Noite)</option>
+                <option value="Part-time(Manhã e Noite)">Part-time (Manhã e Noite)</option>
             </select>
 
             <select id="volPrimeiraVez">
@@ -172,17 +177,24 @@
             <button onclick="adicionarVoluntario()">Adicionar</button>
         </div>
 
-        <ul id="listaVoluntarios"></ul>
+        <table id="tabelaVoluntarios" style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Período</th>
+                    <th>Experiência</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 </div>
 
 <script src="./footer.js"></script>
 <script src="./header.js"></script>
 <script>
-    // const HEADER_IMG = import("./header.js");
-    // const FOOTER_IMG = import("./footer.js");
-
-    // import { HEADER_IMG } from './header.js';
+    let voluntarioEmEdicao = null;
 
     function adicionarEscala() {
         const div = document.createElement("div");
@@ -258,10 +270,12 @@
     function abrirModalVoluntarios() {
         document.getElementById("modalVoluntarios").style.display = "block";
         atualizarListaVoluntarios();
+        voluntarioEmEdicao = null;
     }
 
     function fecharModalVoluntarios() {
         document.getElementById("modalVoluntarios").style.display = "none";
+        voluntarioEmEdicao = null;
     }
 
     function obterVoluntarios() {
@@ -284,11 +298,22 @@
 
         const voluntarios = obterVoluntarios();
 
-        voluntarios.push({
-            nome: nome.toUpperCase(),
-            periodo,
-            primeiraVez
-        });
+        if (voluntarioEmEdicao !== null) {
+            // Edição
+            voluntarios[voluntarioEmEdicao] = {
+                nome: nome.toUpperCase(),
+                periodo,
+                primeiraVez
+            };
+            voluntarioEmEdicao = null;
+        } else {
+            // Novo
+            voluntarios.push({
+                nome: nome.toUpperCase(),
+                periodo,
+                primeiraVez
+            });
+        }
 
         salvarVoluntarios(voluntarios);
         atualizarListaVoluntarios();
@@ -297,17 +322,55 @@
         document.getElementById("volNome").value = "";
     }
 
+    function editarVoluntario(index) {
+        const voluntarios = obterVoluntarios();
+        const v = voluntarios[index];
+
+        document.getElementById("volNome").value = v.nome;
+        document.getElementById("volPeriodo").value = v.periodo;
+        document.getElementById("volPrimeiraVez").value = v.primeiraVez;
+
+        voluntarioEmEdicao = index;
+    }
+
+    function removerVoluntario(index) {
+        const voluntarios = obterVoluntarios();
+        const nome = voluntarios[index].nome;
+
+        const confirmar = confirm(
+            `Deseja remover o voluntário "${nome}"?\n` +
+            `Isso não remove o nome das escalas já criadas.`
+        );
+
+        if (!confirmar) return;
+
+        voluntarios.splice(index, 1);
+        salvarVoluntarios(voluntarios);
+        atualizarListaVoluntarios();
+        atualizarSugestoesStaff();
+    }
+
     function atualizarListaVoluntarios() {
-        const ul = document.getElementById("listaVoluntarios");
-        ul.innerHTML = "";
+        const tbody = document
+            .getElementById("tabelaVoluntarios")
+            .querySelector("tbody");
 
-        obterVoluntarios().forEach(v => {
-            const li = document.createElement("li");
-            li.textContent =
-                `${v.nome} — ${v.periodo} — ` +
-                (v.primeiraVez === "Sim" ? "Primeira vez" : "Experiente");
+        tbody.innerHTML = "";
 
-            ul.appendChild(li);
+        obterVoluntarios().forEach((v, index) => {
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${v.nome}</td>
+                <td>${v.periodo}</td>
+                <td>${v.primeiraVez === "Sim" ? "Primeira vez" : "Experiente"}</td>
+                <td style="text-align:center">
+                    <button onclick="editarVoluntario(${index})">Editar</button>
+                    <button onclick="removerVoluntario(${index})">Remover</button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
         });
     }
 
@@ -489,6 +552,7 @@
 
             // Numeração da página
             doc.setFontSize(9);
+            doc.setFont("helvetica", "normal");
             doc.setTextColor(0, 0, 0);
             doc.text(
                 `Página ${pagina}`,
@@ -513,12 +577,14 @@
                 .toUpperCase();
 
             doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
             doc.text(titulo, pageWidth / 2, y, { align: "center" });
             y += 6;
 
             // Cabeçalho da tabela
             doc.setFontSize(10);
-            doc.setFillColor(230, 230, 230);
+            doc.setFont("helvetica", "bold");
+            doc.setFillColor(180, 198, 231);
 
             doc.rect(15, y, 60, 8, "F");
             doc.rect(75, y, 40, 8, "F");
@@ -552,6 +618,7 @@
                 doc.rect(75, y, 40, 7);
                 doc.rect(115, y, 70, 7);
 
+                doc.setFont("helvetica", "normal");
                 doc.text(inputs[0].value, 17, y + 5);
                 doc.text(inputs[1].value, 77, y + 5);
                 doc.text(inputs[2].value, 117, y + 5);
