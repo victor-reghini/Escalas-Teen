@@ -51,6 +51,78 @@
             text-align: center;
             margin-top: 20px;
         }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #fff;
+            max-width: 500px;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 6px;
+        }
+
+        .close {
+            float: right;
+            font-size: 22px;
+            cursor: pointer;
+        }
+
+        .form-voluntario input,
+        .form-voluntario select {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        /* Tabela da escala */
+        .escala table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .escala th,
+        .escala td {
+            border: 1px solid #000;
+            padding: 4px;
+            vertical-align: middle;
+        }
+
+        /* Inputs dentro da tabela */
+        .escala td input {
+            width: 100%;
+            height: 28px;
+            box-sizing: border-box;
+
+            margin: 0;
+            padding: 4px 6px;
+
+            border: 1px solid #999;
+            border-radius: 3px;
+
+            font-size: 14px;
+            line-height: normal;
+        }
+
+        /* Remove qualquer desalinhamento causado por botões */
+        .escala td button {
+            height: 28px;
+            width: 28px;
+            padding: 0;
+            margin: 0 auto;
+            display: block;
+        }
+
+        /* Centraliza coluna de ação (X) */
+        .escala td:last-child {
+            text-align: center;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -65,6 +137,42 @@
 <div class="acoes">
     <button onclick="adicionarEscala()">Adicionar Escala</button>
     <button onclick="gerarPDF()">Gerar PDF</button>
+    <button onclick="abrirModalVoluntarios()">Gerenciar Voluntários</button>
+</div>
+
+<datalist id="staffSugestoes"></datalist>
+
+<!-- MODAL VOLUNTÁRIOS -->
+<div id="modalVoluntarios" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModalVoluntarios()">&times;</span>
+
+        <h2>Voluntários</h2>
+
+        <p style="font-size:12px;color:#555;">
+            Os voluntários cadastrados são armazenados apenas neste navegador
+            (localStorage). Se os dados do navegador forem apagados, a lista será
+            perdida.
+        </p>
+
+        <div class="form-voluntario">
+            <input id="volNome" placeholder="Nome do staff">
+
+            <select id="volPeriodo">
+                <option value="Integral">Integral</option>
+                <option value="Part-time">Part-time</option>
+            </select>
+
+            <select id="volPrimeiraVez">
+                <option value="Não">Experiente</option>
+                <option value="Sim">Primeira vez</option>
+            </select>
+
+            <button onclick="adicionarVoluntario()">Adicionar</button>
+        </div>
+
+        <ul id="listaVoluntarios"></ul>
+    </div>
 </div>
 
 <script>
@@ -90,10 +198,84 @@
             </table>
 
             <button onclick="adicionarLinha(this)">Adicionar Linha</button>
-            <button onclick="this.parentElement.remove()">Remover Escala</button>
+            <button onclick="removerEscala(this)">Remover Escala</button>
+            <button onclick="duplicarEscala(this)">Duplicar Escala</button>
+            <button onclick="moverEscalaCima(this)">⬆ Mover para Cima</button>
+            <button onclick="moverEscalaBaixo(this)">⬇ Mover para Baixo</button>
         `;
 
         document.getElementById("escalas").appendChild(div);
+    }
+
+    function atualizarSugestoesStaff() {
+        const datalist = document.getElementById("staffSugestoes");
+        datalist.innerHTML = "";
+
+        obterVoluntarios().forEach(v => {
+            const option = document.createElement("option");
+            option.value = v.nome;
+            option.label =
+                `${v.periodo} | ` +
+                (v.primeiraVez === "Sim" ? "Primeira vez" : "Experiente");
+
+            datalist.appendChild(option);
+        });
+    }
+
+    function abrirModalVoluntarios() {
+        document.getElementById("modalVoluntarios").style.display = "block";
+        atualizarListaVoluntarios();
+    }
+
+    function fecharModalVoluntarios() {
+        document.getElementById("modalVoluntarios").style.display = "none";
+    }
+
+    function obterVoluntarios() {
+        return JSON.parse(localStorage.getItem("voluntarios")) || [];
+    }
+
+    function salvarVoluntarios(lista) {
+        localStorage.setItem("voluntarios", JSON.stringify(lista));
+    }
+
+    function adicionarVoluntario() {
+        const nome = document.getElementById("volNome").value.trim();
+        const periodo = document.getElementById("volPeriodo").value;
+        const primeiraVez = document.getElementById("volPrimeiraVez").value;
+
+        if (!nome) {
+            alert("Informe o nome do voluntário.");
+            return;
+        }
+
+        const voluntarios = obterVoluntarios();
+
+        voluntarios.push({
+            nome: nome.toUpperCase(),
+            periodo,
+            primeiraVez
+        });
+
+        salvarVoluntarios(voluntarios);
+        atualizarListaVoluntarios();
+        atualizarSugestoesStaff();
+
+        document.getElementById("volNome").value = "";
+    }
+
+    function atualizarListaVoluntarios() {
+        const ul = document.getElementById("listaVoluntarios");
+        ul.innerHTML = "";
+
+        obterVoluntarios().forEach(v => {
+            const li = document.createElement("li");
+            li.textContent =
+                `${v.nome} — ${v.periodo} — ` +
+                (v.primeiraVez === "Sim" ? "Primeira vez" : "Experiente");
+
+            ul.appendChild(li);
+        });
     }
 
     function adicionarLinha(btn) {
@@ -101,121 +283,194 @@
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
-            <td><input></td>
-            <td><input></td>
-            <td><input></td>
+            <td><input list="staffSugestoes" onkeydown="atalhoEnter(event, this)"></td>
+            <td><input onkeydown="atalhoEnter(event, this)"></td>
+            <td><input onkeydown="atalhoEnter(event, this)"></td>
+            <td style="text-align:center">
+                <button onclick="this.closest('tr').remove()">✕</button>
+            </td>
         `;
 
         tbody.appendChild(tr);
     }
 
-    async function gerarPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF("p", "mm", "a4");
+    function moverEscalaCima(botao) {
+        const escala = botao.closest(".escala");
+        const anterior = escala.previousElementSibling;
 
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    const headerHeight = 30;
-    const footerHeight = 35;
-
-    let y = headerHeight + 10;
-    let pagina = 1;
-
-    const tituloArquivo =
-        document.getElementById("tituloArquivo").value || "ESCALA";
-
-    function desenharHeaderFooter() {
-        // HEADER
-        doc.addImage(
-            HEADER_IMG,
-            "PNG",
-            0,
-            0,
-            pageWidth,
-            headerHeight
-        );
-
-        // FOOTER
-        doc.addImage(
-            FOOTER_IMG,
-            "PNG",
-            0,
-            pageHeight - footerHeight,
-            pageWidth,
-            footerHeight
-        );
-
-        // Numeração da página
-        doc.setFontSize(9);
-        doc.setTextColor(0, 0, 0);
-        doc.text(
-            `Página ${pagina}`,
-            pageWidth - 20,
-            pageHeight - footerHeight - 3
-        );
+        if (anterior) {
+            escala.parentElement.insertBefore(escala, anterior);
+        }
     }
 
-    desenharHeaderFooter();
+    function moverEscalaBaixo(botao) {
+        const escala = botao.closest(".escala");
+        const proxima = escala.nextElementSibling;
 
-    document.querySelectorAll(".escala").forEach(escala => {
-        if (y > pageHeight - footerHeight - 40) {
-            doc.addPage();
-            pagina++;
-            y = headerHeight + 10;
-            desenharHeaderFooter();
+        if (proxima) {
+            escala.parentElement.insertBefore(proxima, escala);
+        }
+    }
+
+    function duplicarEscala(botao) {
+        const escalaOriginal = botao.closest(".escala");
+        const clone = escalaOriginal.cloneNode(true);
+
+        // Ajusta título
+        const titulo = clone.querySelector(".tituloEscala");
+        titulo.value = titulo.value + " (Cópia)";
+
+        // Reaplica handlers corretamente
+        clone.querySelectorAll("tbody tr").forEach(tr => {
+            const inputs = tr.querySelectorAll("input");
+
+            inputs[0].onkeydown = e => atalhoEnter(e, inputs[0]);
+            inputs[1].onkeydown = e => atalhoEnter(e, inputs[1]);
+            inputs[1].onblur = () => validarHorario(inputs[1]);
+            inputs[2].onkeydown = e => atalhoEnter(e, inputs[2]);
+        });
+
+        escalaOriginal.after(clone);
+    }
+
+    function atalhoEnter(event, input) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+
+            const escala = input.closest(".escala");
+            adicionarLinha(escala.querySelector("button"));
+            const novaLinha = escala.querySelector("tbody tr:last-child input");
+            novaLinha.focus();
+        }
+    }
+
+    function removerEscala(botao) {
+        const confirmar = confirm(
+            "Deseja realmente remover esta escala inteira?\nTodas as linhas serão perdidas."
+        );
+
+        if (confirmar) {
+            botao.closest(".escala").remove();
+        }
+    }
+
+    async function gerarPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("p", "mm", "a4");
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        const headerHeight = 30;
+        const footerHeight = 35;
+
+        let y = headerHeight + 10;
+        let pagina = 1;
+
+        const tituloArquivo =
+            document.getElementById("tituloArquivo").value || "ESCALA";
+
+        function desenharHeaderFooter() {
+            // HEADER
+            doc.addImage(
+                HEADER_IMG,
+                "PNG",
+                0,
+                0,
+                pageWidth,
+                headerHeight
+            );
+
+            // FOOTER
+            doc.addImage(
+                FOOTER_IMG,
+                "PNG",
+                0,
+                pageHeight - footerHeight,
+                pageWidth,
+                footerHeight
+            );
+
+            // Numeração da página
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            doc.text(
+                `Página ${pagina}`,
+                pageWidth - 20,
+                pageHeight - footerHeight - 3
+            );
         }
 
-        const titulo = escala
-            .querySelector(".tituloEscala")
-            .value
-            .toUpperCase();
+        desenharHeaderFooter();
 
-        doc.setFontSize(12);
-        doc.text(titulo, pageWidth / 2, y, { align: "center" });
-        y += 6;
-
-        // Cabeçalho da tabela
-        doc.setFontSize(10);
-        doc.setFillColor(230, 230, 230);
-
-        doc.rect(15, y, 60, 8, "F");
-        doc.rect(75, y, 40, 8, "F");
-        doc.rect(115, y, 70, 8, "F");
-
-        doc.setTextColor(0);
-        doc.text("STAFFS", 17, y + 5);
-        doc.text("HORÁRIO", 77, y + 5);
-        doc.text("LOCAL", 117, y + 5);
-
-        y += 8;
-
-        escala.querySelectorAll("tbody tr").forEach(tr => {
-            if (y > pageHeight - footerHeight - 20) {
+        document.querySelectorAll(".escala").forEach(escala => {
+            if (y > pageHeight - footerHeight - 40) {
                 doc.addPage();
                 pagina++;
                 y = headerHeight + 10;
                 desenharHeaderFooter();
             }
 
-            const inputs = tr.querySelectorAll("input");
+            const titulo = escala
+                .querySelector(".tituloEscala")
+                .value
+                .toUpperCase();
 
-            doc.rect(15, y, 60, 7);
-            doc.rect(75, y, 40, 7);
-            doc.rect(115, y, 70, 7);
+            doc.setFontSize(12);
+            doc.text(titulo, pageWidth / 2, y, { align: "center" });
+            y += 6;
 
-            doc.text(inputs[0].value || "", 17, y + 5);
-            doc.text(inputs[1].value || "", 77, y + 5);
-            doc.text(inputs[2].value || "", 117, y + 5);
+            // Cabeçalho da tabela
+            doc.setFontSize(10);
+            doc.setFillColor(230, 230, 230);
 
-            y += 7;
+            doc.rect(15, y, 60, 8, "F");
+            doc.rect(75, y, 40, 8, "F");
+            doc.rect(115, y, 70, 8, "F");
+
+            doc.setTextColor(0);
+            doc.text("STAFFS", 17, y + 5);
+            doc.text("HORÁRIO", 77, y + 5);
+            doc.text("LOCAL", 117, y + 5);
+
+            y += 8;
+
+            escala.querySelectorAll("tbody tr").forEach(tr => {
+                const inputs = tr.querySelectorAll("input");
+
+                const temConteudo =
+                    inputs[0].value.trim() !== "" ||
+                    inputs[1].value.trim() !== "" ||
+                    inputs[2].value.trim() !== "";
+
+                if (!temConteudo) return;
+
+                if (y > pageHeight - footerHeight - 20) {
+                    doc.addPage();
+                    pagina++;
+                    y = headerHeight + 10;
+                    desenharHeaderFooter();
+                }
+
+                doc.rect(15, y, 60, 7);
+                doc.rect(75, y, 40, 7);
+                doc.rect(115, y, 70, 7);
+
+                doc.text(inputs[0].value, 17, y + 5);
+                doc.text(inputs[1].value, 77, y + 5);
+                doc.text(inputs[2].value, 117, y + 5);
+
+                y += 7;
+            });
+
+            y += 10;
         });
 
-        y += 10;
-    });
+        doc.save(`${tituloArquivo}.pdf`);
+    }
 
-    doc.save(`${tituloArquivo}.pdf`);
-}
+    atualizarListaVoluntarios();
+    atualizarSugestoesStaff();
 </script>
 
 </body>
