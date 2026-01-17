@@ -624,6 +624,25 @@
             );
         }
 
+        // === TÍTULO PRINCIPAL DO PDF ===
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 83, 155);
+        doc.text(
+            tituloArquivo.toUpperCase(),
+            pageWidth / 2,
+            headerHeight + 10,
+            { align: "center" }
+        );
+
+        // Espaço após o título
+        y = headerHeight + 18;
+
+        // Volta fonte normal para o restante
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(0, 0, 0);
+
         desenharHeaderFooter();
 
         document.querySelectorAll(".escala").forEach(escala => {
