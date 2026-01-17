@@ -124,6 +124,69 @@
             text-align: center;
             vertical-align: middle;
         }
+
+        /* Botões – padrão geral */
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            background: #e0e0e0;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        button:hover {
+            background: #d5d5d5;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        /* Botões por intenção */
+        .btn-primary {
+            background: #1976d2;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #1565c0;
+        }
+
+        .btn-success {
+            background: #2e7d32;
+            color: #fff;
+        }
+        .btn-success:hover {
+            background: #256628;
+        }
+
+        .btn-warning {
+            background: #f9a825;
+            color: #000;
+        }
+
+        .btn-danger {
+            background: #d32f2f;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #b71c1c;
+        }
+
+        /* Botões só com ícone */
+        .btn-icon {
+            padding: 4px 6px;
+            font-size: 16px;
+        }
+
+        /* Alinhamento de ícone + texto */
+        .btn-text-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
     </style>
 </head>
 <body>
@@ -136,9 +199,9 @@
 <div id="escalas"></div>
 
 <div class="acoes">
-    <button onclick="adicionarEscala()">Adicionar Escala</button>
-    <button onclick="gerarPDF()">Gerar PDF</button>
-    <button onclick="abrirModalVoluntarios()">Gerenciar Voluntários</button>
+    <button onclick="adicionarEscala()" class="btn-text-icon">➕ Adicionar Escala</button>
+    <button onclick="gerarPDF()" class="btn-text-icon btn-success">Gerar PDF</button>
+    <button onclick="abrirModalVoluntarios()" class="btn-text-icon btn-primary">👥 Voluntários</button>
 </div>
 
 <datalist id="staffSugestoes"></datalist>
@@ -214,11 +277,12 @@
                 <tbody></tbody>
             </table>
 
-            <button onclick="adicionarLinha(this)">Adicionar Linha</button>
-            <button onclick="removerEscala(this)">Remover Escala</button>
-            <button onclick="duplicarEscala(this)">Duplicar Escala</button>
-            <button onclick="moverEscalaCima(this)">⬆ Mover para Cima</button>
-            <button onclick="moverEscalaBaixo(this)">⬇ Mover para Baixo</button>
+            <button onclick="moverEscalaCima(this)" class="btn-icon" title="Mover para cima">⬆️</button>
+            <button onclick="moverEscalaBaixo(this)" class="btn-icon" title="Mover para baixo">⬇️</button>
+
+            <button onclick="adicionarLinha(this)" class="btn-text-icon btn-success">➕ Nova linha</button>
+            <button onclick="removerEscala(this)" class="btn-text-icon btn-danger">❌ Remover Escala</button>
+            <button onclick="duplicarEscala(this)" class="btn-text-icon">📄 Duplicar Escala</button>
         `;
 
         document.getElementById("escalas").appendChild(div);
@@ -365,8 +429,8 @@
                 <td>${v.periodo}</td>
                 <td>${v.primeiraVez === "Sim" ? "Primeira vez" : "Experiente"}</td>
                 <td style="text-align:center">
-                    <button onclick="editarVoluntario(${index})">Editar</button>
-                    <button onclick="removerVoluntario(${index})">Remover</button>
+                    <button onclick="editarVoluntario(${index})" class="btn-icon" title="Editar">✏️</button>
+                    <button onclick="removerVoluntario(${index})" class="btn-icon btn-danger" title="Remover">❌</button>
                 </td>
             `;
 
@@ -383,7 +447,7 @@
             <td><input onkeydown="atalhoEnter(event, this)"></td>
             <td><input onkeydown="atalhoEnter(event, this)"></td>
             <td style="text-align:center">
-                <button onclick="this.closest('tr').remove()">✕</button>
+                <button onclick="this.closest('tr').remove()" class="btn-icon btn-danger" title="Remover linha">❌</button>
             </td>
         `;
 
@@ -422,7 +486,6 @@
 
             inputs[0].onkeydown = e => atalhoEnter(e, inputs[0]);
             inputs[1].onkeydown = e => atalhoEnter(e, inputs[1]);
-            inputs[1].onblur = () => validarHorario(inputs[1]);
             inputs[2].onkeydown = e => atalhoEnter(e, inputs[2]);
         });
 
