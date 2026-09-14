@@ -11,25 +11,25 @@ export class Navbar {
     nav.className = 'navbar';
 
     const eventOptionsHtml = event 
-      ? `<span title="${event.description || ''}">🎪 ${event.name}</span>`
+      ? `<span title="${event.description || ''}">${event.name}</span>`
       : '<span>Nenhum evento selecionado</span>';
 
     let navLinksHtml = '';
     if (user) {
       if (isAdmin) {
         navLinksHtml = `
-          <li><a href="#admin" class="nav-link ${currentRoute === '#admin' ? 'active' : ''}">📊 Dashboard</a></li>
-          <li><a href="#volunteers" class="nav-link ${currentRoute === '#volunteers' ? 'active' : ''}">👥 Voluntários</a></li>
-          <li><a href="#schedules" class="nav-link ${currentRoute === '#schedules' ? 'active' : ''}">📅 Programação</a></li>
-          <li><a href="#shifts" class="nav-link ${currentRoute === '#shifts' ? 'active' : ''}">📋 Escalas</a></li>
-          <li><a href="#history" class="nav-link ${currentRoute === '#history' ? 'active' : ''}">📜 Histórico</a></li>
-          <li><a href="#settings" class="nav-link ${currentRoute === '#settings' ? 'active' : ''}">⚙️ Evento</a></li>
+          <li><a href="#admin" class="nav-link ${currentRoute === '#admin' ? 'active' : ''}">Dashboard</a></li>
+          <li><a href="#volunteers" class="nav-link ${currentRoute === '#volunteers' ? 'active' : ''}">Voluntários</a></li>
+          <li><a href="#schedules" class="nav-link ${currentRoute === '#schedules' ? 'active' : ''}">Programação</a></li>
+          <li><a href="#shifts" class="nav-link ${currentRoute === '#shifts' ? 'active' : ''}">Escalas</a></li>
+          <li><a href="#history" class="nav-link ${currentRoute === '#history' ? 'active' : ''}">Histórico</a></li>
+          <li><a href="#settings" class="nav-link ${currentRoute === '#settings' ? 'active' : ''}">Evento</a></li>
         `;
       } else {
         navLinksHtml = `
-          <li><a href="#portal" class="nav-link ${currentRoute === '#portal' ? 'active' : ''}">📋 Minhas Escalas</a></li>
-          <li><a href="#availability" class="nav-link ${currentRoute === '#availability' ? 'active' : ''}">⏰ Minha Disponibilidade</a></li>
-          <li><a href="#history" class="nav-link ${currentRoute === '#history' ? 'active' : ''}">📜 Meu Histórico</a></li>
+          <li><a href="#portal" class="nav-link ${currentRoute === '#portal' ? 'active' : ''}">Minhas Escalas</a></li>
+          <li><a href="#availability" class="nav-link ${currentRoute === '#availability' ? 'active' : ''}">Minha Disponibilidade</a></li>
+          <li><a href="#history" class="nav-link ${currentRoute === '#history' ? 'active' : ''}">Meu Histórico</a></li>
         `;
       }
     }
@@ -57,13 +57,13 @@ export class Navbar {
 
           <div class="flex items-center gap-3">
             <span class="badge ${isAdmin ? 'badge-primary' : 'badge-orange'}">
-              ${isAdmin ? '👑 ADMIN' : '🙋 VOLUNTÁRIO'}
+              ${isAdmin ? 'ADMIN' : 'VOLUNTÁRIO'}
             </span>
             <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);" class="truncate" style="max-width: 140px;">
               ${user.name || user.username}
             </span>
             <button id="btn-logout" class="btn btn-secondary btn-sm" title="Sair do sistema">
-              🚪 Sair
+              Sair
             </button>
           </div>
         ` : `
