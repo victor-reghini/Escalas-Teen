@@ -1,6 +1,7 @@
 import { volunteerService } from '../../services/VolunteerService.js';
 import { scheduleService } from '../../services/ScheduleService.js';
 import { eventService } from '../../services/EventService.js';
+import { availabilityChecker } from '../../engine/AvailabilityChecker.js';
 import { Modal } from '../components/Modal.js';
 import { Toast } from '../components/Toast.js';
 import { StarRating } from '../components/StarRating.js';
@@ -15,9 +16,11 @@ export class VolunteerMgmtView {
 
     const volunteers = await volunteerService.getVolunteersByEvent(event.id);
     const categories = await scheduleService.getCategoriesByEvent(event.id);
+    const schedules = await scheduleService.getSchedulesByEvent(event.id);
+    const shifts = await scheduleService.getShiftsByEvent(event.id);
 
     container.innerHTML = `
-      <div style="margin-bottom: 24px;" class="flex items-center justify-between">
+      <div style="margin-bottom: 24px;" class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2>👥 Gestão de Voluntários</h2>
           <p style="color: var(--text-secondary); font-size: 0.95rem;">
@@ -31,14 +34,14 @@ export class VolunteerMgmtView {
 
       <!-- BARRA DE BUSCA E FILTROS -->
       <div class="card" style="padding: 16px; margin-bottom: 20px;">
-        <div class="flex gap-3">
-          <input type="text" id="vol-search" class="form-input" placeholder="🔍 Buscar por nome ou e-mail..." style="flex: 1;">
-          <select id="vol-filter-type" class="form-select" style="width: 180px;">
+        <div class="flex gap-3 flex-wrap">
+          <input type="text" id="vol-search" class="form-input" placeholder="🔍 Buscar por nome ou e-mail..." style="flex: 1; min-width: 200px;">
+          <select id="vol-filter-type" class="form-select" style="width: auto; min-width: 150px;">
             <option value="all">Todos os Tipos</option>
             <option value="integral">Integral (Full-time)</option>
             <option value="part_time">Part-time</option>
           </select>
-          <select id="vol-filter-exp" class="form-select" style="width: 180px;">
+          <select id="vol-filter-exp" class="form-select" style="width: auto; min-width: 150px;">
             <option value="all">Toda Experiência</option>
             <option value="experiente">Experiente</option>
             <option value="primeira_vez">1ª Vez</option>
@@ -58,6 +61,7 @@ export class VolunteerMgmtView {
                 <th>Disponibilidade / Indisponibilidades</th>
                 <th>Preferências</th>
                 <th>Nota Admin</th>
+                <th>Uso & Escalas</th>
                 <th style="text-align: center;">Ações</th>
               </tr>
             </thead>
@@ -87,7 +91,7 @@ export class VolunteerMgmtView {
       if (filtered.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted);">
+            <td colspan="8" style="text-align: center; padding: 30px; color: var(--text-muted);">
               Nenhum voluntário encontrado.
             </td>
           </tr>
@@ -104,6 +108,35 @@ export class VolunteerMgmtView {
           const cat = categories.find(c => c.id === catId);
           return `<span class="badge badge-purple" style="font-size: 0.7rem;">${cat ? cat.name : catId}</span>`;
         }).join(' ');
+
+        // Cálculo de escalas participadas, total disponível e % de uso
+        let servedShifts = 0;
+        shifts.forEach(s => {
+          if ((s.assignments || []).some(a => a.volunteerId === v.id)) {
+            servedShifts++;
+          }
+        });
+
+        let possibleShifts = 0;
+        if (v.isIntegral ? v.isIntegral() : v.type === 'integral') {
+          possibleShifts = schedules.length;
+        } else {
+          schedules.forEach(sched => {
+            if (availabilityChecker.isAvailableForSlot(v, sched.date, sched.startTime, sched.endTime)) {
+              possibleShifts++;
+            }
+          });
+        }
+
+        const safePossible = Math.max(possibleShifts, 1);
+        const wearRatio = servedShifts / safePossible;
+        const wearPct = Math.round(wearRatio * 100);
+
+        let wearBadgeClass = 'badge-primary';
+        if (wearPct >= 75) wearBadgeClass = 'badge-danger';
+        else if (wearPct >= 40) wearBadgeClass = 'badge-orange';
+        else if (wearPct > 0) wearBadgeClass = 'badge-purple';
+        else wearBadgeClass = 'badge-gray';
 
         return `
           <tr data-id="${v.id}">
@@ -135,6 +168,13 @@ export class VolunteerMgmtView {
               <button class="btn btn-secondary btn-sm btn-rating-modal" data-id="${v.id}" title="Avaliar desempenho do voluntário">
                 ⭐ ${v.adminRating !== undefined ? v.adminRating : 5}/5
               </button>
+            </td>
+            <td>
+              <div class="flex items-center gap-1 flex-wrap">
+                <span class="badge ${wearBadgeClass}" style="font-weight: 700;" title="${servedShifts} escalas realizadas de ${possibleShifts} disponíveis (${wearPct}% de uso)">
+                  ${servedShifts}/${possibleShifts} esc. (${wearPct}%)
+                </span>
+              </div>
             </td>
             <td style="text-align: center;">
               <div class="flex justify-center gap-2">

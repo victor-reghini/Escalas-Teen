@@ -25,14 +25,14 @@ export class ShiftGenerationView {
     const isAdmin = authService.isAdmin();
 
     container.innerHTML = `
-      <div style="margin-bottom: 24px;" class="flex items-center justify-between">
+      <div style="margin-bottom: 24px;" class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2>📋 Gestão e Geração de Escalas</h2>
           <p style="color: var(--text-secondary); font-size: 0.95rem;">
             Gere escalas inteligentes com cálculo de desgaste e preferências ou monte manualmente.
           </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
           ${event.autoGenerationEnabled !== false ? `
             <button id="btn-generate-shifts" class="btn btn-primary">
               ⚡ Gerar Escalas Automaticamente
@@ -82,24 +82,37 @@ export class ShiftGenerationView {
         const cat = categories.find(c => c.id === shift.categoryId);
         const isApproved = shift.isApproved();
         const assignments = shift.assignments || [];
+        const sched = schedules.find(s => s.id === shift.scheduleId);
+        const availableRoles = sched && sched.roles ? sched.roles : [];
+        const requiredCount = sched ? (sched.requiredVolunteers || (availableRoles.length > 0 ? availableRoles.length : 1)) : 1;
+        const hasDeficit = assignments.length < requiredCount;
+        const deficitCount = requiredCount - assignments.length;
 
         return `
           <div class="shift-card" data-id="${shift.id}">
             <div class="shift-card-header">
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3" style="flex-wrap: wrap;">
                 <span style="font-size: 1.25rem;">📋</span>
-                <input type="text" class="shift-title-input" value="${shift.title}" style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; font-size: 1.1rem; font-weight: 700; padding: 4px 8px; border-radius: var(--radius-sm); outline: none;" data-id="${shift.id}">
+                <input type="text" class="shift-title-input" value="${shift.title}" style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.4); color: #fff; font-size: 1.05rem; font-weight: 700; padding: 6px 10px; border-radius: var(--radius-sm); outline: none; min-width: 220px;" data-id="${shift.id}" title="Clique para editar o título da escala">
                 ${cat ? `
-                  <span class="badge" style="background: #ffffff; color: ${cat.color || '#1e3a8a'}; font-size: 0.75rem;">
+                  <span class="badge" style="background: #ffffff; color: ${cat.color || '#1e3a8a'}; font-size: 0.75rem; font-weight: 700;">
                     ${cat.name}
+                  </span>
+                ` : ''}
+                ${hasDeficit ? `
+                  <span class="badge badge-danger" style="font-size: 0.75rem; padding: 4px 8px;" title="Escala com menos voluntários que o necessário">
+                    ⚠️ Faltam ${deficitCount} voluntário(s)
                   </span>
                 ` : ''}
               </div>
 
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2" style="flex-wrap: wrap;">
                 <span class="badge ${isApproved ? 'badge-success' : 'badge-warning'}">
                   ${isApproved ? '✅ Aprovada' : '⏳ Rascunho / Pendente'}
                 </span>
+                <button class="btn btn-secondary btn-sm btn-edit-shift" data-id="${shift.id}" title="Editar Dados da Escala (Data, Horário, Local, Categoria)">
+                  ✏️ Editar Dados
+                </button>
                 <button class="btn btn-secondary btn-sm btn-export-single" data-id="${shift.id}" title="Exportar (WhatsApp, PDF, Imagem)">
                   📤 Exportar
                 </button>
@@ -118,59 +131,93 @@ export class ShiftGenerationView {
               <div>📅 Data: <strong>${shift.date ? shift.date.split('-').reverse().join('/') : '-'}</strong></div>
               <div>⏰ Horário Geral: <strong>${shift.startTime} às ${shift.endTime}</strong></div>
               <div>📍 Local Geral: <strong>${shift.generalLocation || 'Refeitório / Geral'}</strong></div>
-              <div>👥 Total Alocados: <strong>${assignments.length} voluntários</strong></div>
+              <div>👥 Voluntários: <strong>${assignments.length} de ${requiredCount} necessários</strong></div>
+              ${availableRoles.length > 0 ? `<div>🏷️ Funções da Programação: <strong>${availableRoles.map(r => r.name).join(', ')}</strong></div>` : ''}
             </div>
 
             <div class="shift-assignments">
+              ${hasDeficit ? `
+                <div style="background: #fef2f2; border: 1px solid #fca5a5; border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                  <div style="font-size: 0.85rem; color: #991b1b; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.25rem;">⚠️</span>
+                    <span><strong>Escala Incompleta:</strong> A programação prevê <strong>${requiredCount}</strong> voluntário(s), mas apenas <strong>${assignments.length}</strong> foram alocados. Faltam <strong>${deficitCount}</strong> voluntário(s).</span>
+                  </div>
+                  <button type="button" class="btn btn-danger btn-sm btn-add-assignment" data-id="${shift.id}" style="padding: 4px 10px; font-size: 0.8rem;">
+                    ➕ Completar Vagas
+                  </button>
+                </div>
+              ` : ''}
+
               <div class="table-container" style="margin-bottom: 12px;">
                 <table class="table">
                   <thead>
                     <tr>
-                      <th style="width: 35%;">VOLUNTÁRIO</th>
-                      <th style="width: 25%;">HORÁRIO</th>
-                      <th style="width: 30%;">FUNÇÃO / LOCAL</th>
-                      <th style="width: 10%; text-align: center;">AÇÃO</th>
+                      <th style="width: 28%;">VOLUNTÁRIO</th>
+                      <th style="width: 20%;">HORÁRIO</th>
+                      <th style="width: 24%;">FUNÇÃO (PROGRAMAÇÃO / PERSONALIZADA)</th>
+                      <th style="width: 20%;">LOCAL ESPECÍFICO</th>
+                      <th style="width: 8%; text-align: center;">AÇÃO</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${assignments.length === 0 ? `
                       <tr>
-                        <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">
-                          Nenhum voluntário escalado. Clique em <strong>➕ Adicionar Voluntário</strong> abaixo.
+                        <td colspan="5" style="text-align: center; padding: 24px; color: var(--text-muted);">
+                          Nenhum voluntário escalado. Clique em <strong>➕ Adicionar Voluntário à Escala</strong> abaixo.
                         </td>
                       </tr>
-                    ` : assignments.map((a, aIdx) => `
-                      <tr data-assignment-index="${aIdx}">
-                        <td style="font-weight: 700;">
-                          <div class="flex items-center justify-between">
-                            <span>${a.volunteerName}</span>
-                            <button class="btn btn-icon btn-sm btn-change-volunteer" data-shift-id="${shift.id}" data-index="${aIdx}" title="Substituir por outro voluntário ordenado por afinidade">
-                              🔄
+                    ` : assignments.map((a, aIdx) => {
+                      const isPredefinedRole = availableRoles.some(r => r.name.toLowerCase() === (a.roleName || '').toLowerCase());
+                      return `
+                        <tr data-assignment-index="${aIdx}">
+                          <td style="font-weight: 700;">
+                            <div class="flex items-center justify-between gap-2">
+                              <span class="truncate" title="${a.volunteerName}">${a.volunteerName}</span>
+                              <button class="btn btn-icon btn-sm btn-change-volunteer" data-shift-id="${shift.id}" data-index="${aIdx}" title="Substituir por outro voluntário">
+                                🔄
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <input type="text" class="form-input input-time-range" value="${a.startTime || shift.startTime} - ${a.endTime || shift.endTime}" style="padding: 4px 8px; font-size: 0.85rem;" data-shift-id="${shift.id}" data-index="${aIdx}" placeholder="07:30 - 09:00">
+                          </td>
+                          <td>
+                            <div class="flex flex-col gap-1">
+                              ${availableRoles.length > 0 ? `
+                                <select class="form-select select-role-preset" data-index="${aIdx}" style="padding: 4px 8px; font-size: 0.825rem; background-color: #f8fafc;">
+                                  <option value="">-- Escolher Função --</option>
+                                  ${availableRoles.map(r => `
+                                    <option value="${r.name}" data-loc="${r.specificLocation || ''}" ${a.roleName === r.name ? 'selected' : ''}>
+                                      🏷️ ${r.name} ${r.specificLocation ? `(${r.specificLocation})` : ''}
+                                    </option>
+                                  `).join('')}
+                                  <option value="Staff" ${a.roleName === 'Staff' ? 'selected' : ''}>Staff Geral</option>
+                                  <option value="__custom__" ${!isPredefinedRole && a.roleName !== 'Staff' ? 'selected' : ''}>✏️ Função Personalizada...</option>
+                                </select>
+                              ` : ''}
+                              <input type="text" class="form-input input-role" value="${a.roleName || 'Staff'}" style="padding: 4px 8px; font-size: 0.85rem;" data-shift-id="${shift.id}" data-index="${aIdx}" placeholder="Nome da função">
+                            </div>
+                          </td>
+                          <td>
+                            <input type="text" class="form-input input-loc" value="${a.specificLocation || ''}" style="padding: 4px 8px; font-size: 0.85rem;" data-shift-id="${shift.id}" data-index="${aIdx}" placeholder="Local Específico (Opcional)">
+                          </td>
+                          <td style="text-align: center;">
+                            <button class="btn btn-icon btn-danger btn-sm btn-remove-assignment" data-shift-id="${shift.id}" data-index="${aIdx}" title="Remover voluntário da escala">
+                              ❌
                             </button>
-                          </div>
-                        </td>
-                        <td>
-                          <input type="text" class="form-input input-time-range" value="${a.startTime || shift.startTime} - ${a.endTime || shift.endTime}" style="padding: 4px 8px; font-size: 0.85rem;" data-shift-id="${shift.id}" data-index="${aIdx}">
-                        </td>
-                        <td>
-                          <input type="text" class="form-input input-role-loc" value="${a.roleName || 'Staff'}${a.specificLocation ? ` (${a.specificLocation})` : ''}" style="padding: 4px 8px; font-size: 0.85rem;" data-shift-id="${shift.id}" data-index="${aIdx}">
-                        </td>
-                        <td style="text-align: center;">
-                          <button class="btn btn-icon btn-danger btn-sm btn-remove-assignment" data-shift-id="${shift.id}" data-index="${aIdx}" title="Remover voluntário">
-                            ❌
-                          </button>
-                        </td>
-                      </tr>
-                    `).join('')}
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
                   </tbody>
                 </table>
               </div>
 
-              <div class="flex justify-between items-center">
+              <div class="flex justify-between items-center" style="flex-wrap: wrap; gap: 8px;">
                 <button class="btn btn-secondary btn-sm btn-add-assignment" data-id="${shift.id}">
                   ➕ Adicionar Voluntário à Escala
                 </button>
-                <div class="flex gap-2">
+                <div class="flex gap-2" style="flex-wrap: wrap;">
                   <button class="btn btn-secondary btn-sm btn-duplicate-shift" data-id="${shift.id}">
                     📄 Duplicar Escala
                   </button>
@@ -184,11 +231,39 @@ export class ShiftGenerationView {
         `;
       }).join('');
 
+      // Handler para o select de funções pré-determinadas
+      listContainer.querySelectorAll('.select-role-preset').forEach(sel => {
+        sel.onchange = () => {
+          const tr = sel.closest('tr');
+          const roleInput = tr.querySelector('.input-role');
+          const locInput = tr.querySelector('.input-loc');
+          const opt = sel.options[sel.selectedIndex];
+
+          if (sel.value === '__custom__') {
+            roleInput.focus();
+            roleInput.select();
+          } else if (sel.value) {
+            roleInput.value = sel.value;
+            const dataLoc = opt.getAttribute('data-loc');
+            if (dataLoc !== null && dataLoc !== undefined) {
+              locInput.value = dataLoc;
+            }
+          }
+        };
+      });
+
       // Handlers de interação
       listContainer.querySelectorAll('.btn-export-single').forEach(btn => {
         btn.onclick = () => {
           const s = shifts.find(shift => shift.id === btn.dataset.id);
           ShiftExportModal.open(s, event);
+        };
+      });
+
+      listContainer.querySelectorAll('.btn-edit-shift').forEach(btn => {
+        btn.onclick = () => {
+          const s = shifts.find(shift => shift.id === btn.dataset.id);
+          ShiftGenerationView.openEditShiftModal(s, categories, () => ShiftGenerationView.render(container));
         };
       });
 
@@ -228,9 +303,9 @@ export class ShiftGenerationView {
               shift.assignments.push({
                 volunteerId: chosenVolunteer.id,
                 volunteerName: chosenVolunteer.name,
-                roleId: `role-${Date.now()}`,
+                roleId: `role-${Date.now()}-${shift.assignments.length}`,
                 roleName: 'Staff',
-                specificLocation: shift.generalLocation,
+                specificLocation: shift.generalLocation || '',
                 startTime: shift.startTime,
                 endTime: shift.endTime,
                 manualOverride: true
@@ -274,9 +349,10 @@ export class ShiftGenerationView {
         btn.onclick = async () => {
           const shift = shifts.find(s => s.id === btn.dataset.shiftId);
           const aIdx = Number(btn.dataset.index);
+          const removedName = shift.assignments[aIdx]?.volunteerName || 'Voluntário';
           shift.assignments.splice(aIdx, 1);
           await scheduleService.saveShift(shift);
-          Toast.success('Voluntário removido da escala.');
+          Toast.success(`${removedName} removido da escala.`);
           ShiftGenerationView.render(container);
         };
       });
@@ -286,23 +362,34 @@ export class ShiftGenerationView {
           const card = btn.closest('.shift-card');
           const shift = shifts.find(s => s.id === btn.dataset.id);
           const titleInput = card.querySelector('.shift-title-input');
-          shift.title = titleInput.value.trim().toUpperCase();
+          if (titleInput) {
+            shift.title = titleInput.value.trim().toUpperCase();
+          }
 
           card.querySelectorAll('tbody tr').forEach((tr, idx) => {
             const timeInput = tr.querySelector('.input-time-range');
-            const roleInput = tr.querySelector('.input-role-loc');
-            if (timeInput && shift.assignments[idx]) {
-              const parts = timeInput.value.split('-').map(p => p.trim());
-              shift.assignments[idx].startTime = parts[0] || shift.startTime;
-              shift.assignments[idx].endTime = parts[1] || shift.endTime;
-            }
-            if (roleInput && shift.assignments[idx]) {
-              shift.assignments[idx].roleName = roleInput.value.trim();
+            const roleInput = tr.querySelector('.input-role');
+            const locInput = tr.querySelector('.input-loc');
+            
+            if (shift.assignments && shift.assignments[idx]) {
+              if (timeInput && timeInput.value.trim()) {
+                const parts = timeInput.value.split('-').map(p => p.trim());
+                shift.assignments[idx].startTime = parts[0] || shift.startTime;
+                shift.assignments[idx].endTime = parts[1] || shift.endTime;
+              }
+              if (roleInput) {
+                shift.assignments[idx].roleName = roleInput.value.trim() || 'Staff';
+              }
+              if (locInput) {
+                shift.assignments[idx].specificLocation = locInput.value.trim();
+              }
+              shift.assignments[idx].manualOverride = true;
             }
           });
 
           await scheduleService.saveShift(shift);
-          Toast.success('Escala salva com sucesso!');
+          Toast.success('Escala e alterações salvas com sucesso!');
+          ShiftGenerationView.render(container);
         };
       });
 
@@ -468,6 +555,76 @@ export class ShiftGenerationView {
 
     Modal.open({
       title: '➕ Nova Escala Manual',
+      content
+    });
+  }
+
+  static openEditShiftModal(shift, categories, onSaved) {
+    const content = document.createElement('div');
+    content.innerHTML = `
+      <form id="edit-shift-modal-form">
+        <div class="form-group">
+          <label class="form-label">Título da Escala</label>
+          <input type="text" id="e-title" class="form-input" value="${shift.title}" required>
+        </div>
+
+        <div class="grid grid-cols-3">
+          <div class="form-group">
+            <label class="form-label">Data</label>
+            <input type="date" id="e-date" class="form-input" value="${shift.date || ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Início</label>
+            <input type="time" id="e-start" class="form-input" value="${shift.startTime || ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fim</label>
+            <input type="time" id="e-end" class="form-input" value="${shift.endTime || ''}" required>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2">
+          <div class="form-group">
+            <label class="form-label">Local Geral</label>
+            <input type="text" id="e-loc" class="form-input" value="${shift.generalLocation || ''}" placeholder="Ex: Refeitório Principal">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Categoria</label>
+            <select id="e-cat" class="form-select">
+              <option value="">Sem categoria</option>
+              ${categories.map(c => `<option value="${c.id}" ${shift.categoryId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-between" style="margin-top: 24px;">
+          <button type="button" class="btn btn-secondary" onclick="document.querySelector('#active-modal-overlay').remove()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+        </div>
+      </form>
+    `;
+
+    content.querySelector('#edit-shift-modal-form').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        shift.title = content.querySelector('#e-title').value.trim().toUpperCase();
+        shift.date = content.querySelector('#e-date').value;
+        shift.startTime = content.querySelector('#e-start').value;
+        shift.endTime = content.querySelector('#e-end').value;
+        shift.generalLocation = content.querySelector('#e-loc').value.trim();
+        shift.categoryId = content.querySelector('#e-cat').value;
+
+        await scheduleService.saveShift(shift);
+        Toast.success('Dados da escala atualizados!');
+        Modal.close();
+        if (onSaved) onSaved();
+      } catch (err) {
+        Toast.error(err.message || 'Erro ao atualizar dados da escala.');
+      }
+    };
+
+    Modal.open({
+      title: `✏️ Editar Dados - ${shift.title}`,
       content
     });
   }

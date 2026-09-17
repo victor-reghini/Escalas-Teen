@@ -16,7 +16,7 @@ export class EventService {
 
     try {
       // Cria uma promessa com timeout para evitar bloqueio em caso de rede instável
-      const fetchWithTimeout = (promise, ms = 2500) => 
+      const fetchWithTimeout = (promise, ms = 4000) => 
         Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
 
       // 1. Tenta carregar pelo preferredEventId (ex: URL param ?event=ID)
@@ -41,12 +41,17 @@ export class EventService {
         }
       }
 
-      // 4. Se não existir nenhum evento no banco, tenta criar o evento padrão do TeenStreet
+      // 4. Se não encontrar, tenta buscar diretamente o evento padrão por ID
+      if (!event) {
+        event = await fetchWithTimeout(eventRepository.getById('teenstreet-2026')).catch(() => null);
+      }
+
+      // 5. Se não existir nenhum evento no banco, cria o evento inicial padrão
       if (!event) {
         event = await fetchWithTimeout(this.createInitialDefaultEvent()).catch(() => null);
       }
     } catch (e) {
-      console.warn('Fallback local para evento ativo.');
+      console.warn('Fallback local para evento ativo:', e);
     }
 
     // Se falhar ou estiver offline, usa o evento padrão em memória
@@ -189,43 +194,56 @@ export class EventService {
    * Cria o evento padrão do TeenStreet se a base estiver vazia
    */
   async createInitialDefaultEvent() {
-    const event = await eventRepository.create({
-      id: 'teenstreet-2026',
-      name: 'TeenStreet Brasil 2026',
-      code: 'ts-2026',
-      startDate: '2026-07-16',
-      endDate: '2026-07-21',
-      description: 'Congresso TeenStreet Brasil 2026 - O Chamado',
-      status: 'active',
-      allowVolunteerRegistration: true,
-      openShiftVisibility: false,
-      autoGenerationEnabled: true
-    });
+    let event = await eventRepository.getById('teenstreet-2026');
+    if (!event) {
+      event = await eventRepository.create({
+        id: 'teenstreet-2026',
+        name: 'TeenStreet Brasil 2026',
+        code: 'ts-2026',
+        startDate: '2026-07-16',
+        endDate: '2026-07-21',
+        description: 'Congresso TeenStreet Brasil 2026 - O Chamado',
+        status: 'active',
+        allowVolunteerRegistration: true,
+        openShiftVisibility: false,
+        autoGenerationEnabled: true
+      });
+    }
 
-    // Cria categorias padrão
-    await categoryRepository.create({
-      eventId: event.id,
-      name: 'Ensino / Sala do Trono',
-      description: 'Atividades espirituais, ministrações e discipulado',
-      color: '#7c3aed',
-      priority: 10
-    });
+    // Verifica se já existem categorias cadastradas para este evento antes de criar padrão
+    const existingCats = await categoryRepository.getByEvent(event.id);
+    if (existingCats.length === 0) {
+      const defaultCategories = [
+        {
+          id: `${event.id}-cat-ensino`,
+          eventId: event.id,
+          name: 'Ensino / Sala do Trono',
+          description: 'Atividades espirituais, ministrações e discipulado',
+          color: '#7c3aed',
+          priority: 10
+        },
+        {
+          id: `${event.id}-cat-refeicoes`,
+          eventId: event.id,
+          name: 'Refeições (Café / Almoço / Jantar)',
+          description: 'Serviço de refeitório, buffet e copa',
+          color: '#ea580c',
+          priority: 3
+        },
+        {
+          id: `${event.id}-cat-apoio`,
+          eventId: event.id,
+          name: 'Apoio Geral & Limpeza',
+          description: 'Organização de tendas, logística e manutenção',
+          color: '#2563eb',
+          priority: 2
+        }
+      ];
 
-    await categoryRepository.create({
-      eventId: event.id,
-      name: 'Refeições (Café / Almoço / Jantar)',
-      description: 'Serviço de refeitório, buffet e copa',
-      color: '#ea580c',
-      priority: 3
-    });
-
-    await categoryRepository.create({
-      eventId: event.id,
-      name: 'Apoio Geral & Limpeza',
-      description: 'Organização de tendas, logística e manutenção',
-      color: '#2563eb',
-      priority: 2
-    });
+      for (const cat of defaultCategories) {
+        await categoryRepository.create(cat);
+      }
+    }
 
     return event;
   }

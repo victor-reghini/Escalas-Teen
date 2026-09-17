@@ -57,13 +57,14 @@ export class ScheduleService {
   }
 
   async saveShift(shiftData) {
-    if (shiftData.id) {
-      const existing = await shiftRepository.getById(shiftData.id);
+    const raw = typeof shiftData.toJSON === 'function' ? shiftData.toJSON() : { ...shiftData };
+    if (raw.id) {
+      const existing = await shiftRepository.getById(raw.id);
       if (existing) {
-        return shiftRepository.update(shiftData.id, shiftData);
+        return shiftRepository.update(raw.id, raw);
       }
     }
-    return shiftRepository.create(shiftData);
+    return shiftRepository.create(raw);
   }
 
   async approveShift(shiftId, adminUid) {

@@ -38,9 +38,9 @@ export class CandidatePicker {
         <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">
           Voluntários ordenados automaticamente por <strong>Preferência de Categoria</strong>, <strong>Menor Desgaste</strong>, <strong>Avaliações</strong> e <strong>Conflitos de Horário</strong>.
         </p>
-        <div class="flex gap-2">
-          <input type="text" id="candidate-search" class="form-input" placeholder="🔍 Buscar voluntário por nome..." style="flex: 1;">
-          <select id="candidate-filter" class="form-select" style="width: 160px;">
+        <div class="flex gap-2" style="flex-wrap: wrap;">
+          <input type="text" id="candidate-search" class="form-input" placeholder="🔍 Buscar voluntário por nome..." style="flex: 1; min-width: 180px;">
+          <select id="candidate-filter" class="form-select" style="width: auto; min-width: 140px;">
             <option value="all">Todos</option>
             <option value="eligible" selected>Apenas Elegíveis</option>
             <option value="integral">Integral</option>

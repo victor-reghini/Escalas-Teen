@@ -96,9 +96,12 @@ a:hover {
 /* Utilitários */
 .flex { display: flex; }
 .flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
 .justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.gap-1 { gap: 4px; }
 .gap-2 { gap: 8px; }
 .gap-3 { gap: 12px; }
 .gap-4 { gap: 16px; }
@@ -107,6 +110,9 @@ a:hover {
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.desktop-only { display: flex; }
+.mobile-only { display: none; }
 
 /* Grid responsivo */
 .grid {
@@ -119,10 +125,25 @@ a:hover {
 .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 @media (max-width: 768px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: flex !important; }
+  .mobile-only.block { display: block !important; }
+
   .grid-cols-2, .grid-cols-3, .grid-cols-4 {
     grid-template-columns: 1fr;
+    gap: 14px;
   }
   .main-content {
-    padding: 16px 12px 40px 12px;
+    padding: 14px 10px 40px 10px;
   }
+  
+  /* Evita auto-zoom indesejado no iOS ao focar em inputs */
+  .form-input, .form-select, .form-textarea {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  h2 { font-size: 1.35rem; }
+  h3 { font-size: 1.15rem; }
 }

@@ -15,14 +15,14 @@ export class ScheduleMgmtView {
     const categories = await scheduleService.getCategoriesByEvent(event.id);
 
     container.innerHTML = `
-      <div style="margin-bottom: 24px;" class="flex items-center justify-between">
+      <div style="margin-bottom: 24px;" class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2>📅 Gestão de Programações & Categorias</h2>
           <p style="color: var(--text-secondary); font-size: 0.95rem;">
             Cadastre as atividades, horários, locais e funções pré-determinadas para as escalas.
           </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
           <button id="btn-manage-categories" class="btn btn-secondary">
             🏷️ Categorias (${categories.length})
           </button>
@@ -291,101 +291,195 @@ export class ScheduleMgmtView {
   }
 
   static openCategoriesModal(event, categories, onSaved) {
+    let editingCatId = null;
+
     const content = document.createElement('div');
     content.innerHTML = `
       <div style="margin-bottom: 20px;">
         <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px;">
-          Categorias definem tipos de escala (ex: Ensino, Refeição, Apoio) e ajudam no algoritmo de alocação de voluntários.
+          Categorias definem os tipos de escala (ex: Ensino, Refeição, Apoio) e ajudam no algoritmo de alocação de voluntários.
         </p>
 
         <!-- LISTA DE CATEGORIAS -->
+        <label class="form-label" style="font-weight: 700; margin-bottom: 8px; display: block;">Categorias Cadastradas</label>
         <div id="cats-list-box" style="margin-bottom: 20px; max-height: 240px; overflow-y: auto;"></div>
 
-        <!-- FORMULÁRIO DE NOVA CATEGORIA -->
-        <div class="card" style="padding: 16px; background: #f8fafc;">
-          <h5 style="font-size: 0.9rem; margin-bottom: 10px; font-weight: 700;">➕ Nova Categoria</h5>
+        <!-- FORMULÁRIO DE CATEGORIA (CRIAR / EDITAR) -->
+        <div class="card" style="padding: 16px; background: #f8fafc; border: 1px solid var(--border-color);">
+          <div class="flex items-center justify-between" style="margin-bottom: 10px;">
+            <h5 id="cat-form-title" style="font-size: 0.95rem; font-weight: 700; margin: 0;">➕ Nova Categoria</h5>
+            <button type="button" id="btn-cancel-edit-cat" class="btn btn-secondary btn-sm" style="display: none; padding: 2px 8px; font-size: 0.75rem;">Cancelar Edição</button>
+          </div>
+          
           <div class="grid grid-cols-2 gap-2" style="margin-bottom: 8px;">
-            <input type="text" id="new-cat-name" class="form-input" placeholder="Nome (Ex: Ensino / Sala do Trono)" required>
+            <input type="text" id="cat-name-input" class="form-input" placeholder="Nome (Ex: Ensino / Sala do Trono)" required>
             <div class="flex gap-2">
-              <input type="color" id="new-cat-color" class="form-input" value="#7c3aed" style="width: 50px; padding: 4px;" title="Cor da badge">
-              <input type="number" id="new-cat-prio" class="form-input" value="5" min="1" max="20" placeholder="Prioridade (1-20)" title="Prioridade no algoritmo">
+              <input type="color" id="cat-color-input" class="form-input" value="#7c3aed" style="width: 50px; padding: 4px;" title="Cor da badge">
+              <input type="number" id="cat-prio-input" class="form-input" value="5" min="1" max="20" placeholder="Prioridade (1-20)" title="Prioridade no algoritmo (1 a 20)">
             </div>
           </div>
-          <input type="text" id="new-cat-desc" class="form-input" placeholder="Descrição opcional..." style="margin-bottom: 8px;">
-          <button type="button" id="btn-save-new-cat" class="btn btn-primary btn-sm w-full">Salvar Categoria</button>
+          <input type="text" id="cat-desc-input" class="form-input" placeholder="Descrição opcional..." style="margin-bottom: 10px;">
+          <button type="button" id="btn-submit-cat" class="btn btn-primary btn-sm w-full">Salvar Nova Categoria</button>
         </div>
       </div>
 
       <div class="flex justify-end">
-        <button type="button" class="btn btn-secondary" onclick="document.querySelector('#active-modal-overlay').remove()">Fechar</button>
+        <button type="button" class="btn btn-secondary" id="btn-close-cats-modal">Fechar</button>
       </div>
     `;
+
+    const formTitle = content.querySelector('#cat-form-title');
+    const cancelEditBtn = content.querySelector('#btn-cancel-edit-cat');
+    const nameInput = content.querySelector('#cat-name-input');
+    const colorInput = content.querySelector('#cat-color-input');
+    const prioInput = content.querySelector('#cat-prio-input');
+    const descInput = content.querySelector('#cat-desc-input');
+    const submitBtn = content.querySelector('#btn-submit-cat');
+    const closeBtn = content.querySelector('#btn-close-cats-modal');
+
+    function resetForm() {
+      editingCatId = null;
+      formTitle.textContent = '➕ Nova Categoria';
+      cancelEditBtn.style.display = 'none';
+      nameInput.value = '';
+      colorInput.value = '#7c3aed';
+      prioInput.value = '5';
+      descInput.value = '';
+      submitBtn.textContent = 'Salvar Nova Categoria';
+      submitBtn.className = 'btn btn-primary btn-sm w-full';
+    }
+
+    cancelEditBtn.onclick = resetForm;
+
+    closeBtn.onclick = () => {
+      Modal.close();
+      if (onSaved) onSaved();
+    };
 
     async function renderCats() {
       const currentCats = await scheduleService.getCategoriesByEvent(event.id);
       const box = content.querySelector('#cats-list-box');
 
       if (currentCats.length === 0) {
-        box.innerHTML = '<p style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">Nenhuma categoria cadastrada.</p>';
+        box.innerHTML = '<p style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 12px;">Nenhuma categoria cadastrada.</p>';
         return;
       }
 
       box.innerHTML = currentCats.map(c => `
-        <div class="flex items-center justify-between" style="padding: 8px 12px; background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: 8px;">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="badge" style="background: ${c.color || '#3b82f6'}; color: #ffffff;">${c.name}</span>
+        <div class="flex items-center justify-between" style="padding: 8px 12px; background: #ffffff; border: 1px solid var(--border-color); border-radius: var(--radius-md); margin-bottom: 8px; transition: var(--transition);">
+          <div style="flex: 1; min-width: 0; margin-right: 12px;">
+            <div class="flex items-center gap-2" style="flex-wrap: wrap;">
+              <span class="badge" style="background: ${c.color || '#3b82f6'}; color: #ffffff; font-weight: 700;">${c.name}</span>
               <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Prioridade ${c.priority || 1}</span>
             </div>
-            ${c.description ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">${c.description}</div>` : ''}
+            ${c.description ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;" class="truncate" title="${c.description}">${c.description}</div>` : ''}
           </div>
-          <button type="button" class="btn btn-icon btn-danger btn-sm btn-del-cat" data-id="${c.id}" style="padding: 4px 8px;">❌</button>
+          <div class="flex gap-1 items-center">
+            <button type="button" class="btn btn-icon btn-sm btn-edit-cat" data-id="${c.id}" title="Editar esta categoria" style="padding: 4px 8px;">✏️</button>
+            <button type="button" class="btn btn-icon btn-danger btn-sm btn-del-cat" data-id="${c.id}" title="Excluir esta categoria" style="padding: 4px 8px;">❌</button>
+          </div>
         </div>
       `).join('');
 
+      box.querySelectorAll('.btn-edit-cat').forEach(b => {
+        b.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const cat = currentCats.find(c => c.id === b.dataset.id);
+          if (!cat) return;
+
+          editingCatId = cat.id;
+          formTitle.textContent = `✏️ Editar Categoria: ${cat.name}`;
+          cancelEditBtn.style.display = 'inline-block';
+          nameInput.value = cat.name;
+          colorInput.value = cat.color || '#3b82f6';
+          prioInput.value = cat.priority || 1;
+          descInput.value = cat.description || '';
+          submitBtn.textContent = '💾 Atualizar Categoria';
+          submitBtn.className = 'btn btn-success btn-sm w-full';
+          nameInput.focus();
+        };
+      });
+
       box.querySelectorAll('.btn-del-cat').forEach(b => {
-        b.onclick = async () => {
-          if (confirm('Deseja excluir esta categoria?')) {
-            await scheduleService.deleteCategory(b.dataset.id);
-            Toast.success('Categoria excluída!');
-            await renderCats();
-            if (onSaved) onSaved();
+        b.onclick = async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (b.disabled) return;
+
+          const cat = currentCats.find(c => c.id === b.dataset.id);
+          const catName = cat ? cat.name : 'esta categoria';
+          
+          if (confirm(`Deseja excluir permanentemente a categoria "${catName}"?`)) {
+            b.disabled = true;
+            try {
+              await scheduleService.deleteCategory(b.dataset.id);
+              Toast.success('Categoria excluída com sucesso!');
+              if (editingCatId === b.dataset.id) {
+                resetForm();
+              }
+              await renderCats();
+            } catch (err) {
+              Toast.error(err.message || 'Erro ao excluir categoria.');
+            } finally {
+              b.disabled = false;
+            }
           }
         };
       });
     }
 
-    content.querySelector('#btn-save-new-cat').onclick = async () => {
-      const name = content.querySelector('#new-cat-name').value.trim();
-      const color = content.querySelector('#new-cat-color').value;
-      const priority = Number(content.querySelector('#new-cat-prio').value) || 1;
-      const description = content.querySelector('#new-cat-desc').value.trim();
+    submitBtn.onclick = async () => {
+      const name = nameInput.value.trim();
+      const color = colorInput.value;
+      const priority = Number(prioInput.value) || 1;
+      const description = descInput.value.trim();
 
       if (!name) {
         Toast.error('Informe o nome da categoria.');
+        nameInput.focus();
         return;
       }
 
-      await scheduleService.createCategory({
-        eventId: event.id,
-        name,
-        color,
-        priority,
-        description
-      });
+      submitBtn.disabled = true;
+      try {
+        if (editingCatId) {
+          await scheduleService.updateCategory(editingCatId, {
+            name,
+            color,
+            priority,
+            description
+          });
+          Toast.success('Categoria atualizada com sucesso!');
+        } else {
+          await scheduleService.createCategory({
+            eventId: event.id,
+            name,
+            color,
+            priority,
+            description
+          });
+          Toast.success('Categoria cadastrada com sucesso!');
+        }
 
-      content.querySelector('#new-cat-name').value = '';
-      content.querySelector('#new-cat-desc').value = '';
-      Toast.success('Categoria criada!');
-      await renderCats();
-      if (onSaved) onSaved();
+        resetForm();
+        await renderCats();
+      } catch (err) {
+        Toast.error(err.message || 'Erro ao salvar categoria.');
+      } finally {
+        submitBtn.disabled = false;
+      }
     };
 
     renderCats();
 
     Modal.open({
-      title: '🏷️ Categorias de Escala',
-      content
+      title: '🏷️ Gestão de Categorias de Escala',
+      content,
+      size: 'md',
+      onClose: () => {
+        if (onSaved) onSaved();
+      }
     });
   }
 }

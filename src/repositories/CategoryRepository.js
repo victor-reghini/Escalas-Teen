@@ -18,8 +18,20 @@ export class CategoryRepository {
   }
 
   async create(data) {
-    const id = data.id || doc(this.getCollection()).id;
-    const cat = new Category({ ...data, id });
+    const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
+    
+    // Validação para não criar categorias duplicadas com o mesmo nome para o mesmo evento
+    if (raw.eventId && raw.name) {
+      const existingCats = await this.getByEvent(raw.eventId);
+      const normalizedName = raw.name.trim().toLowerCase();
+      const duplicate = existingCats.find(c => c.name.trim().toLowerCase() === normalizedName);
+      if (duplicate) {
+        return duplicate;
+      }
+    }
+
+    const id = raw.id || doc(this.getCollection()).id;
+    const cat = new Category({ ...raw, id });
     const ref = this.getRef(id);
     await setDoc(ref, cat.toJSON());
     return cat;
@@ -27,7 +39,15 @@ export class CategoryRepository {
 
   async update(id, data) {
     const ref = this.getRef(id);
-    await updateDoc(ref, data);
+    const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
+    delete raw.id;
+    const cleanData = {};
+    Object.keys(raw).forEach(key => {
+      if (raw[key] !== undefined) {
+        cleanData[key] = raw[key];
+      }
+    });
+    await setDoc(ref, cleanData, { merge: true });
     return this.getById(id);
   }
 
@@ -49,7 +69,19 @@ export class CategoryRepository {
     if (!eventId) return [];
     const q = query(this.getCollection(), where('eventId', '==', eventId));
     const snap = await getDocs(q);
-    return snap.docs.map(d => new Category({ id: d.id, ...d.data() }));
+    const list = snap.docs.map(d => new Category({ id: d.id, ...d.data() }));
+    
+    // Deduplica por nome case-insensitive caso existam duplicatas herdadas no banco
+    const seenNames = new Set();
+    const uniqueList = [];
+    for (const item of list) {
+      const key = (item.name || '').trim().toLowerCase();
+      if (!seenNames.has(key)) {
+        seenNames.add(key);
+        uniqueList.push(item);
+      }
+    }
+    return uniqueList;
   }
 
   subscribeByEvent(eventId, callback) {
@@ -57,7 +89,16 @@ export class CategoryRepository {
     const q = query(this.getCollection(), where('eventId', '==', eventId));
     return onSnapshot(q, (snap) => {
       const list = snap.docs.map(d => new Category({ id: d.id, ...d.data() }));
-      callback(list);
+      const seenNames = new Set();
+      const uniqueList = [];
+      for (const item of list) {
+        const key = (item.name || '').trim().toLowerCase();
+        if (!seenNames.has(key)) {
+          seenNames.add(key);
+          uniqueList.push(item);
+        }
+      }
+      callback(uniqueList);
     });
   }
 }

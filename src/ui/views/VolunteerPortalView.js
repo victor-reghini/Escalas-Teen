@@ -49,14 +49,14 @@ export class VolunteerPortalView {
       : allShifts.filter(s => (s.assignments || []).some(a => a.volunteerId === volunteer.id));
 
     container.innerHTML = `
-      <div style="margin-bottom: 24px;" class="flex items-center justify-between">
+      <div style="margin-bottom: 24px;" class="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2>👋 Olá, ${volunteer.name}!</h2>
           <p style="color: var(--text-secondary); font-size: 0.95rem;">
             Acompanhe suas escalas no <strong>${event.name}</strong>, parceiros de equipe e envie feedbacks.
           </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
           <button id="btn-my-availability" class="btn btn-secondary">
             ⏰ Minha Disponibilidade & Restrições
           </button>

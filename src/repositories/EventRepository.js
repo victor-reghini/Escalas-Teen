@@ -18,8 +18,9 @@ export class EventRepository {
   }
 
   async create(eventData) {
-    const id = eventData.id || doc(this.getCollection()).id;
-    const event = new Event({ ...eventData, id });
+    const raw = typeof eventData.toJSON === 'function' ? eventData.toJSON() : { ...eventData };
+    const id = raw.id || doc(this.getCollection()).id;
+    const event = new Event({ ...raw, id });
     const ref = this.getRef(id);
     await setDoc(ref, event.toJSON());
     return event;
@@ -27,7 +28,15 @@ export class EventRepository {
 
   async update(id, data) {
     const ref = this.getRef(id);
-    await updateDoc(ref, data);
+    const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
+    delete raw.id;
+    const cleanData = {};
+    Object.keys(raw).forEach(key => {
+      if (raw[key] !== undefined) {
+        cleanData[key] = raw[key];
+      }
+    });
+    await setDoc(ref, cleanData, { merge: true });
     return this.getById(id);
   }
 

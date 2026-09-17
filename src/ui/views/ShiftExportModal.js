@@ -18,7 +18,7 @@ export class ShiftExportModal {
     const content = document.createElement('div');
     content.innerHTML = `
       <!-- ABAS DE EXPORTAÇÃO -->
-      <div class="flex gap-2" style="border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px;">
+      <div class="flex gap-2" style="border-bottom: 2px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px; overflow-x: scroll">
         <button type="button" class="btn btn-primary btn-sm btn-tab" data-tab="tab-preview">
           🖼️ Visualização & Imagem
         </button>
@@ -61,19 +61,19 @@ export class ShiftExportModal {
                     </td>
                   </tr>
                 ` : assignments.map(a => {
-                  const timeRange = (a.startTime && a.endTime) ? `${a.startTime} - ${a.endTime}` : `${shift.startTime} - ${shift.endTime}`;
-                  const roleAndLoc = a.specificLocation && a.specificLocation !== shift.generalLocation
-                    ? `${a.roleName || 'Staff'} (${a.specificLocation})`
-                    : (a.roleName || 'Staff');
+      const timeRange = (a.startTime && a.endTime) ? `${a.startTime} - ${a.endTime}` : `${shift.startTime} - ${shift.endTime}`;
+      const roleAndLoc = a.specificLocation && a.specificLocation !== shift.generalLocation
+        ? `${a.roleName || 'Staff'} (${a.specificLocation})`
+        : (a.roleName || 'Staff');
 
-                  return `
+      return `
                     <tr>
                       <td style="border: 1px solid #94a3b8; padding: 8px 12px; font-weight: 700;">${a.volunteerName}</td>
                       <td style="border: 1px solid #94a3b8; padding: 8px 12px; text-align: center;">${timeRange}</td>
                       <td style="border: 1px solid #94a3b8; padding: 8px 12px;">${roleAndLoc}</td>
                     </tr>
                   `;
-                }).join('')}
+    }).join('')}
               </tbody>
             </table>
           </div>

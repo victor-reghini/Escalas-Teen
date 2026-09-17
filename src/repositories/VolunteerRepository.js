@@ -18,8 +18,9 @@ export class VolunteerRepository {
   }
 
   async create(volunteerData) {
-    const id = volunteerData.id || doc(this.getCollection()).id;
-    const volunteer = new Volunteer({ ...volunteerData, id });
+    const raw = typeof volunteerData.toJSON === 'function' ? volunteerData.toJSON() : { ...volunteerData };
+    const id = raw.id || doc(this.getCollection()).id;
+    const volunteer = new Volunteer({ ...raw, id });
     const ref = this.getRef(id);
     await setDoc(ref, volunteer.toJSON());
     return volunteer;
@@ -27,7 +28,15 @@ export class VolunteerRepository {
 
   async update(id, data) {
     const ref = this.getRef(id);
-    await updateDoc(ref, data);
+    const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
+    delete raw.id;
+    const cleanData = {};
+    Object.keys(raw).forEach(key => {
+      if (raw[key] !== undefined) {
+        cleanData[key] = raw[key];
+      }
+    });
+    await setDoc(ref, cleanData, { merge: true });
     return this.getById(id);
   }
 
