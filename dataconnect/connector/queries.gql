@@ -1,0 +1,170 @@
+# Queries do Firebase Data Connect
+
+# USUÁRIOS
+query GetUserById($id: String!) @auth(level: PUBLIC) {
+  user(id: $id) {
+    id
+    email
+    username
+    name
+    role
+    phone
+    avatarUrl
+    eventIds
+    createdAt
+  }
+}
+
+query GetUserByEmail($email: String!) @auth(level: PUBLIC) {
+  users(where: { email: { eq: $email } }, limit: 1) {
+    id
+    email
+    username
+    name
+    role
+    phone
+    avatarUrl
+    eventIds
+    createdAt
+  }
+}
+
+query GetUserByUsername($username: String!) @auth(level: PUBLIC) {
+  users(where: { username: { eq: $username } }, limit: 1) {
+    id
+    email
+    username
+    name
+    role
+    phone
+    avatarUrl
+    eventIds
+    createdAt
+  }
+}
+
+# EVENTOS
+query ListEvents @auth(level: PUBLIC) {
+  events {
+    id
+    name
+    code
+    startDate
+    endDate
+    description
+    status
+    allowVolunteerRegistration
+    openShiftVisibility
+    autoGenerationEnabled
+    headerImageUrl
+    footerImageUrl
+    adminUids
+    createdAt
+  }
+}
+
+query GetEventById($id: String!) @auth(level: PUBLIC) {
+  event(id: $id) {
+    id
+    name
+    code
+    startDate
+    endDate
+    description
+    status
+    allowVolunteerRegistration
+    openShiftVisibility
+    autoGenerationEnabled
+    headerImageUrl
+    footerImageUrl
+    adminUids
+    createdAt
+  }
+}
+
+# CATEGORIAS
+query ListCategoriesByEvent($eventId: String!) @auth(level: PUBLIC) {
+  categories(where: { eventId: { eq: $eventId } }, orderBy: [{ priority: ASC }]) {
+    id
+    eventId
+    name
+    description
+    color
+    priority
+    createdAt
+  }
+}
+
+# PROGRAMAÇÕES
+query ListSchedulesByEvent($eventId: String!) @auth(level: PUBLIC) {
+  schedules(where: { eventId: { eq: $eventId } }, orderBy: [{ date: ASC }, { startTime: ASC }]) {
+    id
+    eventId
+    title
+    date
+    startTime
+    endTime
+    generalLocation
+    categoryId
+    requiredVolunteers
+    roles
+    notes
+    createdAt
+  }
+}
+
+# VOLUNTÁRIOS
+query ListVolunteersByEvent($eventId: String!) @auth(level: PUBLIC) {
+  volunteers(where: { eventId: { eq: $eventId } }, orderBy: [{ name: ASC }]) {
+    id
+    eventId
+    userId
+    name
+    email
+    phone
+    type
+    experience
+    availabilities
+    unavailabilities
+    categoryPreferences
+    adminRating
+    adminNotes
+    active
+    createdAt
+  }
+}
+
+# ESCALAS
+query ListShiftsByEvent($eventId: String!) @auth(level: PUBLIC) {
+  shifts(where: { eventId: { eq: $eventId } }, orderBy: [{ date: ASC }, { startTime: ASC }]) {
+    id
+    eventId
+    scheduleId
+    title
+    date
+    startTime
+    endTime
+    generalLocation
+    categoryId
+    status
+    hasDeficit
+    deficitCount
+    assignments
+    approvedBy
+    approvedAt
+    createdAt
+  }
+}
+
+# FEEDBACKS
+query ListFeedbacksByEvent($eventId: String!) @auth(level: PUBLIC) {
+  feedbacks(where: { eventId: { eq: $eventId } }, orderBy: [{ createdAt: DESC }]) {
+    id
+    eventId
+    volunteerId
+    shiftId
+    rating
+    comments
+    createdAt
+  }
+}

@@ -1,93 +1,107 @@
-import { db } from '../config/firebase.js';
+import { dataConnect } from '../config/dataconnect.js';
 import { 
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, onSnapshot 
-} from 'firebase/firestore';
+  listVolunteersByEvent, upsertVolunteer, deleteVolunteer 
+} from '../dataconnect-generated/esm/index.esm.js';
 import { Volunteer } from '../models/Volunteer.js';
 
 export class VolunteerRepository {
-  constructor() {
-    this.collectionName = 'volunteers';
-  }
-
-  getRef(id) {
-    return doc(db, this.collectionName, id);
-  }
-
-  getCollection() {
-    return collection(db, this.collectionName);
-  }
-
   async create(volunteerData) {
     const raw = typeof volunteerData.toJSON === 'function' ? volunteerData.toJSON() : { ...volunteerData };
-    const id = raw.id || doc(this.getCollection()).id;
+    const id = raw.id || `vol-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const volunteer = new Volunteer({ ...raw, id });
-    const ref = this.getRef(id);
-    await setDoc(ref, volunteer.toJSON());
+    const payload = volunteer.toJSON();
+
+    await upsertVolunteer(dataConnect, {
+      id: payload.id,
+      eventId: payload.eventId,
+      userId: payload.userId || null,
+      name: payload.name,
+      email: payload.email || null,
+      phone: payload.phone || null,
+      type: payload.type || 'integral',
+      experience: payload.experience || 'experiente',
+      availabilities: payload.availabilities || [],
+      unavailabilities: payload.unavailabilities || [],
+      categoryPreferences: payload.categoryPreferences || {},
+      adminRating: payload.adminRating !== undefined ? Number(payload.adminRating) : 5,
+      adminNotes: payload.adminNotes || null,
+      active: payload.active ?? true,
+      createdAt: payload.createdAt || new Date().toISOString()
+    });
+
     return volunteer;
   }
 
   async update(id, data) {
-    const ref = this.getRef(id);
     const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
     delete raw.id;
-    const cleanData = {};
-    Object.keys(raw).forEach(key => {
-      if (raw[key] !== undefined) {
-        cleanData[key] = raw[key];
-      }
+    const existing = await this.getById(id, raw.eventId);
+    const updatedPayload = { ...(existing ? existing.toJSON() : {}), ...raw, id };
+    const volunteer = new Volunteer(updatedPayload);
+
+    await upsertVolunteer(dataConnect, {
+      id,
+      eventId: volunteer.eventId,
+      userId: volunteer.userId || null,
+      name: volunteer.name,
+      email: volunteer.email || null,
+      phone: volunteer.phone || null,
+      type: volunteer.type || 'integral',
+      experience: volunteer.experience || 'experiente',
+      availabilities: volunteer.availabilities || [],
+      unavailabilities: volunteer.unavailabilities || [],
+      categoryPreferences: volunteer.categoryPreferences || {},
+      adminRating: volunteer.adminRating !== undefined ? Number(volunteer.adminRating) : 5,
+      adminNotes: volunteer.adminNotes || null,
+      active: volunteer.active ?? true,
+      createdAt: volunteer.createdAt || new Date().toISOString()
     });
-    await setDoc(ref, cleanData, { merge: true });
-    return this.getById(id);
+
+    return volunteer;
   }
 
   async delete(id) {
-    const ref = this.getRef(id);
-    await deleteDoc(ref);
+    await deleteVolunteer(dataConnect, { id });
     return true;
   }
 
-  async getById(id) {
+  async getById(id, eventId = null) {
     if (!id) return null;
-    const ref = this.getRef(id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
-    return new Volunteer({ id: snap.id, ...snap.data() });
+    if (eventId) {
+      const list = await this.getByEvent(eventId);
+      return list.find(v => v.id === id) || null;
+    }
+    return null;
   }
 
   async getByEvent(eventId) {
     if (!eventId) return [];
-    const q = query(this.getCollection(), where('eventId', '==', eventId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => new Volunteer({ id: d.id, ...d.data() }));
+    const res = await listVolunteersByEvent(dataConnect, { eventId });
+    if (res && res.data && res.data.volunteers) {
+      return res.data.volunteers.map(v => new Volunteer(v));
+    }
+    return [];
   }
 
   async getByEventAndUser(eventId, userId) {
     if (!eventId || !userId) return null;
-    const q = query(
-      this.getCollection(), 
-      where('eventId', '==', eventId),
-      where('userId', '==', userId)
-    );
-    const snap = await getDocs(q);
-    if (snap.empty) return null;
-    const d = snap.docs[0];
-    return new Volunteer({ id: d.id, ...d.data() });
+    const all = await this.getByEvent(eventId);
+    return all.find(v => v.userId === userId) || null;
   }
 
   async getByUserAcrossEvents(userId) {
     if (!userId) return [];
-    const q = query(this.getCollection(), where('userId', '==', userId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => new Volunteer({ id: d.id, ...d.data() }));
+    // Pode buscar nas listas disponíveis
+    return [];
   }
 
   subscribeByEvent(eventId, callback) {
     if (!eventId) return () => {};
-    const q = query(this.getCollection(), where('eventId', '==', eventId));
-    return onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => new Volunteer({ id: d.id, ...d.data() }));
-      callback(list);
-    });
+    this.getByEvent(eventId).then(callback);
+    const interval = setInterval(() => {
+      this.getByEvent(eventId).then(callback);
+    }, 10000);
+    return () => clearInterval(interval);
   }
 }
 

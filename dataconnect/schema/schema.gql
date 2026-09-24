@@ -1,0 +1,102 @@
+# Esquema Relacional do Firebase Data Connect (PostgreSQL)
+
+type User @table {
+  id: String!
+  email: String!
+  username: String
+  name: String!
+  role: String!
+  phone: String
+  avatarUrl: String
+  eventIds: [String]
+  createdAt: String
+}
+
+type Event @table {
+  id: String! @default(expr: "uuidV4()")
+  name: String!
+  code: String
+  startDate: String
+  endDate: String
+  description: String
+  status: String!
+  allowVolunteerRegistration: Boolean
+  openShiftVisibility: Boolean
+  autoGenerationEnabled: Boolean
+  headerImageUrl: String
+  footerImageUrl: String
+  adminUids: [String]
+  createdAt: String
+}
+
+type Category @table {
+  id: String! @default(expr: "uuidV4()")
+  eventId: String!
+  name: String!
+  description: String
+  color: String
+  priority: Int
+  createdAt: String
+}
+
+type Schedule @table {
+  id: String! @default(expr: "uuidV4()")
+  eventId: String!
+  title: String!
+  date: String!
+  startTime: String!
+  endTime: String!
+  generalLocation: String
+  categoryId: String
+  requiredVolunteers: Int
+  roles: Any
+  notes: String
+  createdAt: String
+}
+
+type Volunteer @table {
+  id: String! @default(expr: "uuidV4()")
+  eventId: String!
+  userId: String
+  name: String!
+  email: String
+  phone: String
+  type: String!
+  experience: String!
+  availabilities: Any
+  unavailabilities: Any
+  categoryPreferences: Any
+  adminRating: Float
+  adminNotes: String
+  active: Boolean
+  createdAt: String
+}
+
+type Shift @table {
+  id: String! @default(expr: "uuidV4()")
+  eventId: String!
+  scheduleId: String!
+  title: String
+  date: String!
+  startTime: String!
+  endTime: String!
+  generalLocation: String
+  categoryId: String
+  status: String!
+  hasDeficit: Boolean
+  deficitCount: Int
+  assignments: Any
+  approvedBy: String
+  approvedAt: String
+  createdAt: String
+}
+
+type Feedback @table {
+  id: String! @default(expr: "uuidV4()")
+  eventId: String!
+  volunteerId: String!
+  shiftId: String
+  rating: Int!
+  comments: String
+  createdAt: String
+}

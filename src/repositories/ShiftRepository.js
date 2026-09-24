@@ -1,94 +1,106 @@
-import { db } from '../config/firebase.js';
+import { dataConnect } from '../config/dataconnect.js';
 import { 
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot 
-} from 'firebase/firestore';
+  listShiftsByEvent, upsertShift, deleteShift 
+} from '../dataconnect-generated/esm/index.esm.js';
 import { Shift } from '../models/Shift.js';
 
 export class ShiftRepository {
-  constructor() {
-    this.collectionName = 'shifts';
-  }
-
-  getRef(id) {
-    return doc(db, this.collectionName, id);
-  }
-
-  getCollection() {
-    return collection(db, this.collectionName);
-  }
-
   async create(data) {
     const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
-    const id = raw.id || doc(this.getCollection()).id;
+    const id = raw.id || `shift-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const shift = new Shift({ ...raw, id });
-    const ref = this.getRef(id);
-    await setDoc(ref, shift.toJSON());
+    const payload = shift.toJSON();
+
+    await upsertShift(dataConnect, {
+      id: payload.id,
+      eventId: payload.eventId,
+      scheduleId: payload.scheduleId,
+      title: payload.title || null,
+      date: payload.date,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+      generalLocation: payload.generalLocation || null,
+      categoryId: payload.categoryId || null,
+      status: payload.status || 'draft',
+      hasDeficit: payload.hasDeficit ?? false,
+      deficitCount: payload.deficitCount ?? 0,
+      assignments: payload.assignments || [],
+      approvedBy: payload.approvedBy || null,
+      approvedAt: payload.approvedAt || null,
+      createdAt: payload.createdAt || new Date().toISOString()
+    });
+
     return shift;
   }
 
   async update(id, data) {
-    const ref = this.getRef(id);
     const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
     delete raw.id;
-    const cleanData = {};
-    Object.keys(raw).forEach(key => {
-      if (raw[key] !== undefined) {
-        cleanData[key] = raw[key];
-      }
+    const existing = await this.getById(id, raw.eventId);
+    const updatedPayload = { ...(existing ? existing.toJSON() : {}), ...raw, id };
+    const shift = new Shift(updatedPayload);
+
+    await upsertShift(dataConnect, {
+      id,
+      eventId: shift.eventId,
+      scheduleId: shift.scheduleId,
+      title: shift.title || null,
+      date: shift.date,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      generalLocation: shift.generalLocation || null,
+      categoryId: shift.categoryId || null,
+      status: shift.status || 'draft',
+      hasDeficit: shift.hasDeficit ?? false,
+      deficitCount: shift.deficitCount ?? 0,
+      assignments: shift.assignments || [],
+      approvedBy: shift.approvedBy || null,
+      approvedAt: shift.approvedAt || null,
+      createdAt: shift.createdAt || new Date().toISOString()
     });
-    await setDoc(ref, cleanData, { merge: true });
-    return this.getById(id);
+
+    return shift;
   }
 
   async delete(id) {
-    const ref = this.getRef(id);
-    await deleteDoc(ref);
+    await deleteShift(dataConnect, { id });
     return true;
   }
 
-  async getById(id) {
+  async getById(id, eventId = null) {
     if (!id) return null;
-    const ref = this.getRef(id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
-    return new Shift({ id: snap.id, ...snap.data() });
+    if (eventId) {
+      const list = await this.getByEvent(eventId);
+      return list.find(s => s.id === id) || null;
+    }
+    return null;
   }
 
   async getByEvent(eventId) {
     if (!eventId) return [];
-    try {
-      const q = query(
-        this.getCollection(), 
-        where('eventId', '==', eventId),
-        orderBy('date', 'asc'),
-        orderBy('startTime', 'asc')
-      );
-      const snap = await getDocs(q);
-      return snap.docs.map(d => new Shift({ id: d.id, ...d.data() }));
-    } catch (e) {
-      const q = query(this.getCollection(), where('eventId', '==', eventId));
-      const snap = await getDocs(q);
-      const list = snap.docs.map(d => new Shift({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
-      return list;
+    const res = await listShiftsByEvent(dataConnect, { eventId });
+    if (res && res.data && res.data.shifts) {
+      return res.data.shifts.map(s => new Shift(s));
     }
+    return [];
   }
 
-  async getBySchedule(scheduleId) {
+  async getBySchedule(scheduleId, eventId = null) {
     if (!scheduleId) return [];
-    const q = query(this.getCollection(), where('scheduleId', '==', scheduleId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => new Shift({ id: d.id, ...d.data() }));
+    if (eventId) {
+      const all = await this.getByEvent(eventId);
+      return all.filter(s => s.scheduleId === scheduleId);
+    }
+    return [];
   }
 
   subscribeByEvent(eventId, callback) {
     if (!eventId) return () => {};
-    const q = query(this.getCollection(), where('eventId', '==', eventId));
-    return onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => new Shift({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
-      callback(list);
-    });
+    this.getByEvent(eventId).then(callback);
+    const interval = setInterval(() => {
+      this.getByEvent(eventId).then(callback);
+    }, 10000);
+    return () => clearInterval(interval);
   }
 }
 

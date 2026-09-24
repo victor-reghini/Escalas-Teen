@@ -1,0 +1,11 @@
+specVersion: "v1alpha"
+serviceId: "escalas-teen-service"
+location: "us-east4"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "escalas-teen-database"
+      cloudSql:
+        instanceId: "escalas-teen-instance"
+connectorDirs: ["./connector"]
