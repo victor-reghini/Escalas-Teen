@@ -10,7 +10,8 @@
     "test": "node test/engine.test.js"
   },
   "dependencies": {
-    "firebase": "^11.4.0",
+    "@firebasegen/default-connector": "file:src/dataconnect-generated",
+    "firebase": "^12.19.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4"

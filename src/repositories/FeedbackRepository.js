@@ -1,66 +1,73 @@
-import { db } from '../config/firebase.js';
+import { dataConnect } from '../config/dataconnect.js';
 import { 
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot 
-} from 'firebase/firestore';
+  listFeedbacksByEvent, upsertFeedback, deleteFeedback 
+} from '../dataconnect-generated/esm/index.esm.js';
 import { Feedback } from '../models/Feedback.js';
 
 export class FeedbackRepository {
-  constructor() {
-    this.collectionName = 'feedbacks';
-  }
-
-  getRef(id) {
-    return doc(db, this.collectionName, id);
-  }
-
-  getCollection() {
-    return collection(db, this.collectionName);
-  }
-
   async create(data) {
-    const id = data.id || doc(this.getCollection()).id;
-    const feedback = new Feedback({ ...data, id });
-    const ref = this.getRef(id);
-    await setDoc(ref, feedback.toJSON());
+    const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
+    const id = raw.id || `fb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const feedback = new Feedback({ ...raw, id });
+    const payload = feedback.toJSON();
+
+    await upsertFeedback(dataConnect, {
+      id: payload.id,
+      eventId: payload.eventId,
+      volunteerId: payload.volunteerId,
+      shiftId: payload.shiftId || null,
+      rating: Number(payload.rating) || 5,
+      comments: payload.comments || null,
+      createdAt: payload.createdAt || new Date().toISOString()
+    });
+
     return feedback;
   }
 
-  async getById(id) {
+  async delete(id) {
+    await deleteFeedback(dataConnect, { id });
+    return true;
+  }
+
+  async getById(id, eventId = null) {
     if (!id) return null;
-    const ref = this.getRef(id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
-    return new Feedback({ id: snap.id, ...snap.data() });
+    if (eventId) {
+      const list = await this.getByEvent(eventId);
+      return list.find(f => f.id === id) || null;
+    }
+    return null;
   }
 
   async getByEvent(eventId) {
     if (!eventId) return [];
-    const q = query(this.getCollection(), where('eventId', '==', eventId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => new Feedback({ id: d.id, ...d.data() }));
+    const res = await listFeedbacksByEvent(dataConnect, { eventId });
+    if (res && res.data && res.data.feedbacks) {
+      return res.data.feedbacks.map(f => new Feedback(f));
+    }
+    return [];
   }
 
-  async getByVolunteer(volunteerId) {
+  async getByVolunteer(volunteerId, eventId = null) {
     if (!volunteerId) return [];
-    const q = query(this.getCollection(), where('volunteerId', '==', volunteerId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => new Feedback({ id: d.id, ...d.data() }));
+    if (eventId) {
+      const all = await this.getByEvent(eventId);
+      return all.filter(f => f.volunteerId === volunteerId);
+    }
+    return [];
   }
 
-  async getByShift(shiftId) {
+  async getByShift(shiftId, eventId = null) {
     if (!shiftId) return [];
-    const q = query(this.getCollection(), where('shiftId', '==', shiftId));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => new Feedback({ id: d.id, ...d.data() }));
+    if (eventId) {
+      const all = await this.getByEvent(eventId);
+      return all.filter(f => f.shiftId === shiftId);
+    }
+    return [];
   }
 
   subscribeByVolunteer(volunteerId, callback) {
     if (!volunteerId) return () => {};
-    const q = query(this.getCollection(), where('volunteerId', '==', volunteerId));
-    return onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => new Feedback({ id: d.id, ...d.data() }));
-      callback(list);
-    });
+    return () => {};
   }
 }
 

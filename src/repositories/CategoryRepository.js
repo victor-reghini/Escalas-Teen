@@ -1,22 +1,10 @@
-import { db } from '../config/firebase.js';
+import { dataConnect } from '../config/dataconnect.js';
 import { 
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, onSnapshot 
-} from 'firebase/firestore';
+  listCategoriesByEvent, upsertCategory, deleteCategory 
+} from '../dataconnect-generated/esm/index.esm.js';
 import { Category } from '../models/Category.js';
 
 export class CategoryRepository {
-  constructor() {
-    this.collectionName = 'categories';
-  }
-
-  getRef(id) {
-    return doc(db, this.collectionName, id);
-  }
-
-  getCollection() {
-    return collection(db, this.collectionName);
-  }
-
   async create(data) {
     const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
     
@@ -30,65 +18,63 @@ export class CategoryRepository {
       }
     }
 
-    const id = raw.id || doc(this.getCollection()).id;
+    const id = raw.id || `cat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const cat = new Category({ ...raw, id });
-    const ref = this.getRef(id);
-    await setDoc(ref, cat.toJSON());
+    const payload = cat.toJSON();
+
+    await upsertCategory(dataConnect, {
+      id: payload.id,
+      eventId: payload.eventId,
+      name: payload.name,
+      description: payload.description || null,
+      color: payload.color || '#2563eb',
+      priority: payload.priority || 1,
+      createdAt: payload.createdAt || new Date().toISOString()
+    });
+
     return cat;
   }
 
   async update(id, data) {
-    const ref = this.getRef(id);
     const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
     delete raw.id;
-    const cleanData = {};
-    Object.keys(raw).forEach(key => {
-      if (raw[key] !== undefined) {
-        cleanData[key] = raw[key];
-      }
+    const existing = await this.getById(id, raw.eventId);
+    const updatedPayload = { ...(existing ? existing.toJSON() : {}), ...raw, id };
+    const cat = new Category(updatedPayload);
+
+    await upsertCategory(dataConnect, {
+      id,
+      eventId: cat.eventId,
+      name: cat.name,
+      description: cat.description || null,
+      color: cat.color || '#2563eb',
+      priority: cat.priority || 1,
+      createdAt: cat.createdAt || new Date().toISOString()
     });
-    await setDoc(ref, cleanData, { merge: true });
-    return this.getById(id);
+
+    return cat;
   }
 
   async delete(id) {
-    const ref = this.getRef(id);
-    await deleteDoc(ref);
+    await deleteCategory(dataConnect, { id });
     return true;
   }
 
-  async getById(id) {
+  async getById(id, eventId = null) {
     if (!id) return null;
-    const ref = this.getRef(id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
-    return new Category({ id: snap.id, ...snap.data() });
+    if (eventId) {
+      const list = await this.getByEvent(eventId);
+      return list.find(c => c.id === id) || null;
+    }
+    // Caso não tenha eventId, busca pelas categorias disponíveis
+    return null;
   }
 
   async getByEvent(eventId) {
     if (!eventId) return [];
-    const q = query(this.getCollection(), where('eventId', '==', eventId));
-    const snap = await getDocs(q);
-    const list = snap.docs.map(d => new Category({ id: d.id, ...d.data() }));
-    
-    // Deduplica por nome case-insensitive caso existam duplicatas herdadas no banco
-    const seenNames = new Set();
-    const uniqueList = [];
-    for (const item of list) {
-      const key = (item.name || '').trim().toLowerCase();
-      if (!seenNames.has(key)) {
-        seenNames.add(key);
-        uniqueList.push(item);
-      }
-    }
-    return uniqueList;
-  }
-
-  subscribeByEvent(eventId, callback) {
-    if (!eventId) return () => {};
-    const q = query(this.getCollection(), where('eventId', '==', eventId));
-    return onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => new Category({ id: d.id, ...d.data() }));
+    const res = await listCategoriesByEvent(dataConnect, { eventId });
+    if (res && res.data && res.data.categories) {
+      const list = res.data.categories.map(c => new Category(c));
       const seenNames = new Set();
       const uniqueList = [];
       for (const item of list) {
@@ -98,8 +84,18 @@ export class CategoryRepository {
           uniqueList.push(item);
         }
       }
-      callback(uniqueList);
-    });
+      return uniqueList;
+    }
+    return [];
+  }
+
+  subscribeByEvent(eventId, callback) {
+    if (!eventId) return () => {};
+    this.getByEvent(eventId).then(callback);
+    const interval = setInterval(() => {
+      this.getByEvent(eventId).then(callback);
+    }, 10000);
+    return () => clearInterval(interval);
   }
 }
 

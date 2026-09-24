@@ -1,87 +1,89 @@
-import { db } from '../config/firebase.js';
+import { dataConnect } from '../config/dataconnect.js';
 import { 
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot 
-} from 'firebase/firestore';
+  listSchedulesByEvent, upsertSchedule, deleteSchedule 
+} from '../dataconnect-generated/esm/index.esm.js';
 import { Schedule } from '../models/Schedule.js';
 
 export class ScheduleRepository {
-  constructor() {
-    this.collectionName = 'schedules';
-  }
-
-  getRef(id) {
-    return doc(db, this.collectionName, id);
-  }
-
-  getCollection() {
-    return collection(db, this.collectionName);
-  }
-
   async create(data) {
     const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
-    const id = raw.id || doc(this.getCollection()).id;
+    const id = raw.id || `sch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const schedule = new Schedule({ ...raw, id });
-    const ref = this.getRef(id);
-    await setDoc(ref, schedule.toJSON());
+    const payload = schedule.toJSON();
+
+    await upsertSchedule(dataConnect, {
+      id: payload.id,
+      eventId: payload.eventId,
+      title: payload.title,
+      date: payload.date,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+      generalLocation: payload.generalLocation || null,
+      categoryId: payload.categoryId || null,
+      requiredVolunteers: payload.requiredVolunteers || 1,
+      roles: payload.roles || [],
+      notes: payload.notes || null,
+      createdAt: payload.createdAt || new Date().toISOString()
+    });
+
     return schedule;
   }
 
   async update(id, data) {
-    const ref = this.getRef(id);
     const raw = typeof data.toJSON === 'function' ? data.toJSON() : { ...data };
     delete raw.id;
-    const cleanData = {};
-    Object.keys(raw).forEach(key => {
-      if (raw[key] !== undefined) {
-        cleanData[key] = raw[key];
-      }
+    const existing = await this.getById(id, raw.eventId);
+    const updatedPayload = { ...(existing ? existing.toJSON() : {}), ...raw, id };
+    const schedule = new Schedule(updatedPayload);
+
+    await upsertSchedule(dataConnect, {
+      id,
+      eventId: schedule.eventId,
+      title: schedule.title,
+      date: schedule.date,
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      generalLocation: schedule.generalLocation || null,
+      categoryId: schedule.categoryId || null,
+      requiredVolunteers: schedule.requiredVolunteers || 1,
+      roles: schedule.roles || [],
+      notes: schedule.notes || null,
+      createdAt: schedule.createdAt || new Date().toISOString()
     });
-    await setDoc(ref, cleanData, { merge: true });
-    return this.getById(id);
+
+    return schedule;
   }
 
   async delete(id) {
-    const ref = this.getRef(id);
-    await deleteDoc(ref);
+    await deleteSchedule(dataConnect, { id });
     return true;
   }
 
-  async getById(id) {
+  async getById(id, eventId = null) {
     if (!id) return null;
-    const ref = this.getRef(id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return null;
-    return new Schedule({ id: snap.id, ...snap.data() });
+    if (eventId) {
+      const list = await this.getByEvent(eventId);
+      return list.find(s => s.id === id) || null;
+    }
+    return null;
   }
 
   async getByEvent(eventId) {
     if (!eventId) return [];
-    try {
-      const q = query(
-        this.getCollection(), 
-        where('eventId', '==', eventId),
-        orderBy('date', 'asc'),
-        orderBy('startTime', 'asc')
-      );
-      const snap = await getDocs(q);
-      return snap.docs.map(d => new Schedule({ id: d.id, ...d.data() }));
-    } catch (e) {
-      const q = query(this.getCollection(), where('eventId', '==', eventId));
-      const snap = await getDocs(q);
-      const list = snap.docs.map(d => new Schedule({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
-      return list;
+    const res = await listSchedulesByEvent(dataConnect, { eventId });
+    if (res && res.data && res.data.schedules) {
+      return res.data.schedules.map(s => new Schedule(s));
     }
+    return [];
   }
 
   subscribeByEvent(eventId, callback) {
     if (!eventId) return () => {};
-    const q = query(this.getCollection(), where('eventId', '==', eventId));
-    return onSnapshot(q, (snap) => {
-      const list = snap.docs.map(d => new Schedule({ id: d.id, ...d.data() }));
-      list.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
-      callback(list);
-    });
+    this.getByEvent(eventId).then(callback);
+    const interval = setInterval(() => {
+      this.getByEvent(eventId).then(callback);
+    }, 10000);
+    return () => clearInterval(interval);
   }
 }
 

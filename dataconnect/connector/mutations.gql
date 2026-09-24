@@ -1,0 +1,252 @@
+# Mutations do Firebase Data Connect
+
+# USUÁRIOS
+mutation UpsertUser(
+  $id: String!
+  $email: String!
+  $username: String
+  $name: String!
+  $role: String!
+  $phone: String
+  $avatarUrl: String
+  $eventIds: [String!]
+  $createdAt: String
+) @auth(level: PUBLIC) {
+  user_upsert(
+    data: {
+      id: $id
+      email: $email
+      username: $username
+      name: $name
+      role: $role
+      phone: $phone
+      avatarUrl: $avatarUrl
+      eventIds: $eventIds
+      createdAt: $createdAt
+    }
+  )
+}
+
+mutation DeleteUser($id: String!) @auth(level: PUBLIC) {
+  user_delete(key: { id: $id })
+}
+
+# EVENTOS
+mutation UpsertEvent(
+  $id: String!
+  $name: String!
+  $code: String
+  $startDate: String
+  $endDate: String
+  $description: String
+  $status: String!
+  $allowVolunteerRegistration: Boolean
+  $openShiftVisibility: Boolean
+  $autoGenerationEnabled: Boolean
+  $headerImageUrl: String
+  $footerImageUrl: String
+  $adminUids: [String!]
+  $createdAt: String
+) @auth(level: PUBLIC) {
+  event_upsert(
+    data: {
+      id: $id
+      name: $name
+      code: $code
+      startDate: $startDate
+      endDate: $endDate
+      description: $description
+      status: $status
+      allowVolunteerRegistration: $allowVolunteerRegistration
+      openShiftVisibility: $openShiftVisibility
+      autoGenerationEnabled: $autoGenerationEnabled
+      headerImageUrl: $headerImageUrl
+      footerImageUrl: $footerImageUrl
+      adminUids: $adminUids
+      createdAt: $createdAt
+    }
+  )
+}
+
+mutation DeleteEvent($id: String!) @auth(level: PUBLIC) {
+  event_delete(key: { id: $id })
+}
+
+# CATEGORIAS
+mutation UpsertCategory(
+  $id: String!
+  $eventId: String!
+  $name: String!
+  $description: String
+  $color: String
+  $priority: Int
+  $createdAt: String
+) @auth(level: PUBLIC) {
+  category_upsert(
+    data: {
+      id: $id
+      eventId: $eventId
+      name: $name
+      description: $description
+      color: $color
+      priority: $priority
+      createdAt: $createdAt
+    }
+  )
+}
+
+mutation DeleteCategory($id: String!) @auth(level: PUBLIC) {
+  category_delete(key: { id: $id })
+}
+
+# PROGRAMAÇÕES
+mutation UpsertSchedule(
+  $id: String!
+  $eventId: String!
+  $title: String!
+  $date: String!
+  $startTime: String!
+  $endTime: String!
+  $generalLocation: String
+  $categoryId: String
+  $requiredVolunteers: Int
+  $roles: Any
+  $notes: String
+  $createdAt: String
+) @auth(level: PUBLIC) {
+  schedule_upsert(
+    data: {
+      id: $id
+      eventId: $eventId
+      title: $title
+      date: $date
+      startTime: $startTime
+      endTime: $endTime
+      generalLocation: $generalLocation
+      categoryId: $categoryId
+      requiredVolunteers: $requiredVolunteers
+      roles: $roles
+      notes: $notes
+      createdAt: $createdAt
+    }
+  )
+}
+
+mutation DeleteSchedule($id: String!) @auth(level: PUBLIC) {
+  schedule_delete(key: { id: $id })
+}
+
+# VOLUNTÁRIOS
+mutation UpsertVolunteer(
+  $id: String!
+  $eventId: String!
+  $userId: String
+  $name: String!
+  $email: String
+  $phone: String
+  $type: String!
+  $experience: String!
+  $availabilities: Any
+  $unavailabilities: Any
+  $categoryPreferences: Any
+  $adminRating: Float
+  $adminNotes: String
+  $active: Boolean
+  $createdAt: String
+) @auth(level: PUBLIC) {
+  volunteer_upsert(
+    data: {
+      id: $id
+      eventId: $eventId
+      userId: $userId
+      name: $name
+      email: $email
+      phone: $phone
+      type: $type
+      experience: $experience
+      availabilities: $availabilities
+      unavailabilities: $unavailabilities
+      categoryPreferences: $categoryPreferences
+      adminRating: $adminRating
+      adminNotes: $adminNotes
+      active: $active
+      createdAt: $createdAt
+    }
+  )
+}
+
+mutation DeleteVolunteer($id: String!) @auth(level: PUBLIC) {
+  volunteer_delete(key: { id: $id })
+}
+
+# ESCALAS
+mutation UpsertShift(
+  $id: String!
+  $eventId: String!
+  $scheduleId: String!
+  $title: String
+  $date: String!
+  $startTime: String!
+  $endTime: String!
+  $generalLocation: String
+  $categoryId: String
+  $status: String!
+  $hasDeficit: Boolean
+  $deficitCount: Int
+  $assignments: Any
+  $approvedBy: String
+  $approvedAt: String
+  $createdAt: String
+) @auth(level: PUBLIC) {
+  shift_upsert(
+    data: {
+      id: $id
+      eventId: $eventId
+      scheduleId: $scheduleId
+      title: $title
+      date: $date
+      startTime: $startTime
+      endTime: $endTime
+      generalLocation: $generalLocation
+      categoryId: $categoryId
+      status: $status
+      hasDeficit: $hasDeficit
+      deficitCount: $deficitCount
+      assignments: $assignments
+      approvedBy: $approvedBy
+      approvedAt: $approvedAt
+      createdAt: $createdAt
+    }
+  )
+}
+
+mutation DeleteShift($id: String!) @auth(level: PUBLIC) {
+  shift_delete(key: { id: $id })
+}
+
+# FEEDBACKS
+mutation UpsertFeedback(
+  $id: String!
+  $eventId: String!
+  $volunteerId: String!
+  $shiftId: String
+  $rating: Int!
+  $comments: String
+  $createdAt: String
+) @auth(level: PUBLIC) {
+  feedback_upsert(
+    data: {
+      id: $id
+      eventId: $eventId
+      volunteerId: $volunteerId
+      shiftId: $shiftId
+      rating: $rating
+      comments: $comments
+      createdAt: $createdAt
+    }
+  )
+}
+
+mutation DeleteFeedback($id: String!) @auth(level: PUBLIC) {
+  feedback_delete(key: { id: $id })
+}
